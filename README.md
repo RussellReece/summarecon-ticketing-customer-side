@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SummareconTicket
 
-## Getting Started
+Demo ticketing customer app for events at Summarecon Mall Bandung, built with Next.js App Router, TypeScript, Zustand, and Socket.IO client. Its visual tokens and components follow [Style Guide – Summarecon Ticketing](./Style%20Guide%20%E2%80%93%20Summarecon%20Ticketing.md).
 
-First, run the development server:
+## Run locally
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `src/app/(main)/` — beranda dan layout navigasi publik.
+- `src/app/(auth)/` — halaman login dan registrasi.
+- `src/app/event/[id]/` — detail acara dan pemilihan kursi.
+- `src/app/order/[id]/` — ringkasan pesanan.
+- `src/app/ticket/[id]/` — pratinjau e-ticket dengan QR.
+- `src/components/ui/` — komponen dasar Button, Card, Badge, dan Modal.
+- `src/components/seat-map/` — denah dan ringkasan kursi.
+- `src/components/shared/` — layout bersama, Header, Footer, dan Timer.
+- `src/lib/store/` — state booking dan sesi pengguna.
+- `src/lib/socket/` — klien Socket.IO opsional.
+- `src/lib/utils.ts` — helper format harga dan countdown.
+- `src/styles/globals.css` — Tailwind CSS dan gaya global.
+- `src/types/` — tipe Event, Seat, dan UserSession.
+- `tailwind.config.ts` — konfigurasi tema Tailwind proyek.
 
-## Learn More
+Rute acara, pesanan, dan tiket memakai layout bersama terpisah agar struktur folder tetap sesuai tanpa menghilangkan Header dan Footer.
 
-To learn more about Next.js, take a look at the following resources:
+## Demo routes
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `/` — event discovery dan booking guide.
+- `/event/[id]` — event details.
+- `/event/[id]/book` — seat map dan timer hold 10 menit.
+- `/order/[id]` — order review.
+- `/ticket/[id]` — QR-code ticket preview.
+- `/login` dan `/register` — form demo sisi klien.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Data acara dan ketersediaan kursi adalah data contoh. Autentikasi, pemesanan, pembayaran, dan QR masuk belum terhubung ke backend. Untuk pembaruan kursi opsional, atur `NEXT_PUBLIC_SOCKET_URL`; klien mendengarkan event `seat:locked` dan `seat:unlocked` berisi ID kursi.
 
-## Deploy on Vercel
+## Checks
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run lint
+npm run build
+```
