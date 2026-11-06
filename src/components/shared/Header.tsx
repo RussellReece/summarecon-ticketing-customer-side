@@ -19,7 +19,7 @@ export function Header() {
               <path d="M21 23c7 5 7 12 2 15-4-3-6-9-2-15Z" />
             </svg>
           </span>
-          <span className="brand-name">temu<span className="brand-light">tiket</span></span>
+          <span className="brand-name">Summarecon<span className="brand-light">Tiket</span></span>
         </Link>
         <nav className="main-nav" aria-label="Navigasi utama">
           <Link href="/#events">Acara</Link>

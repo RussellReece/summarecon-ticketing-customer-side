@@ -14,7 +14,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             <path d="M21 23c7 5 7 12 2 15-4-3-6-9-2-15Z" />
           </svg>
         </span>
-        <span className="brand-name">temu<span className="brand-light">tiket</span></span>
+        <span className="brand-name">Summarecon<span className="brand-light">Ticket</span></span>
       </Link>
       <div className="auth-decoration">
         <span className="auth-decoration-top">MOMEN SERU<br />DIMULAI BERSAMA.</span>
