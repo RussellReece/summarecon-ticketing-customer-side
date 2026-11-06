@@ -4,6 +4,8 @@ export interface TicketEvent {
   category: string;
   venue: string;
   city: string;
+  date: string;
+  location: string;
   dateLabel: string;
   dateISO: string;
   time: string;
@@ -20,6 +22,8 @@ export interface Seat {
   number: number;
   category: string;
   price: number;
+  area: string; // <-- Tambahkan baris ini
+  status?: string; // (Bila ada properti lain, biarkan saja)
 }
 
 export interface UserSession {

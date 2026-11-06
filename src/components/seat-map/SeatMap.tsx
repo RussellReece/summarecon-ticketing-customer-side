@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import type { Seat, TicketEvent } from "@/types/event";
 import { useBookingStore } from "@/lib/store/useBookingStore";
 import { connectSocket } from "@/lib/socket/socketClient";
@@ -13,10 +14,21 @@ interface SeatMapProps {
 }
 
 export function SeatMap({ event }: SeatMapProps) {
-  const selectedSeats = useBookingStore((state) => state.selectedSeats);
-  const toggleSeat = useBookingStore((state) => state.toggleSeat);
-  const setEvent = useBookingStore((state) => state.setEvent);
-  const lockedByOthers = useBookingStore((state) => state.lockedByOthers);
+  const selectedSeats = useBookingStore(
+    (state) => state.selectedSeats
+  );
+
+  const toggleSeat = useBookingStore(
+    (state) => state.toggleSeat
+  );
+
+  const setEvent = useBookingStore(
+    (state) => state.setEvent
+  );
+
+  const lockedByOthers = useBookingStore(
+    (state) => state.lockedByOthers
+  );
 
   useEffect(() => {
     setEvent(event.id);
@@ -50,13 +62,19 @@ export function SeatMap({ event }: SeatMapProps) {
   }, [event.id, setEvent]);
 
   function makeSeat(row: string, number: number): Seat {
-    const category = row === "A" || row === "B" ? "Platinum" : "Regular";
+    const category =
+      row === "A" || row === "B"
+        ? "Platinum"
+        : "Regular";
+
+    const area = category;
 
     return {
       id: `${row}${String(number).padStart(2, "0")}`,
       row,
       number,
       category,
+      area,
       price:
         category === "Platinum"
           ? event.premiumPrice
@@ -66,6 +84,7 @@ export function SeatMap({ event }: SeatMapProps) {
 
   return (
     <div className="bg-white border border-summa-line rounded-ticket p-6 text-center max-w-2xl mx-auto shadow-summa">
+
       {/* Panggung */}
       <div className="bg-summa-gradient text-white rounded-t-lg rounded-b-[40px] py-2 font-display font-bold text-xs tracking-[0.3em] max-w-[340px] mx-auto mb-8">
         PANGGUNG
@@ -86,71 +105,74 @@ export function SeatMap({ event }: SeatMapProps) {
               {row}
             </span>
 
-            {Array.from({ length: seatsPerRow }, (_, index) => {
-              const seat = makeSeat(row, index + 1);
+            {Array.from(
+              { length: seatsPerRow },
+              (_, index) => {
+                const seat = makeSeat(row, index + 1);
 
-              const isSold =
-                (row === "A" && [3, 4, 8].includes(seat.number)) ||
-                (row === "C" && [6, 7].includes(seat.number));
+                const isSold =
+                  (row === "A" && [3, 4, 8].includes(seat.number)) ||
+                  (row === "C" && [6, 7].includes(seat.number));
 
-              const isHeldByOther = lockedByOthers.includes(seat.id);
+                const isHeldByOther =
+                  lockedByOthers.includes(seat.id);
 
-              const isSelected = selectedSeats.some(
-                (item) => item.id === seat.id
-              );
+                const isSelected = selectedSeats.some(
+                  (item) => item.id === seat.id
+                );
 
-              let seatClass =
-                "seat w-12 h-12 rounded-seat transition-all duration-200 border-none text-xs font-semibold ";
+                let seatClass =
+                  "seat w-12 h-12 rounded-seat transition-all duration-200 border-none text-xs font-semibold ";
 
-              let isDisabled = false;
+                let isDisabled = false;
 
-              if (isSelected) {
-                seatClass +=
-                  "seat-selected bg-summa-primary outline outline-2 outline-summa-tint scale-110 text-white";
-              } else if (isSold) {
-                seatClass +=
-                  "seat-sold bg-status-sold cursor-not-allowed";
-                isDisabled = true;
-              } else if (isHeldByOther) {
-                seatClass +=
-                  "seat-held bg-status-hold cursor-not-allowed";
-                isDisabled = true;
-              } else {
-                seatClass +=
-                  "bg-status-ok hover:opacity-80 cursor-pointer";
-              }
+                if (isSelected) {
+                  seatClass +=
+                    "seat-selected bg-summa-primary outline outline-2 outline-summa-tint scale-110 text-white";
+                } else if (isSold) {
+                  seatClass +=
+                    "seat-sold bg-status-sold cursor-not-allowed";
+                  isDisabled = true;
+                } else if (isHeldByOther) {
+                  seatClass +=
+                    "seat-held bg-status-hold cursor-not-allowed";
+                  isDisabled = true;
+                } else {
+                  seatClass +=
+                    "bg-status-ok hover:opacity-80 cursor-pointer";
+                }
 
-              if (row === "A" || row === "B") {
-                seatClass += " seat-premium";
-              }
+                if (row === "A" || row === "B") {
+                  seatClass += " seat-premium";
+                }
 
-              return (
-                <button
-                  key={seat.id}
-                  type="button"
-                  disabled={isDisabled}
-                  onClick={() => toggleSeat(event.id, seat)}
-                  aria-label={`Baris ${row}, kursi ${seat.number}${
-                    isSold
-                      ? ", terjual"
+                return (
+                  <button
+                    key={seat.id}
+                    type="button"
+                    disabled={isDisabled}
+                    onClick={() => toggleSeat(event.id, seat)}
+                    aria-label={`Baris ${row}, kursi ${seat.number}${isSold
+                        ? ", terjual"
+                        : isHeldByOther
+                          ? ", sedang dipesan"
+                          : ""
+                      }`}
+                    aria-pressed={isSelected}
+                    title={`Kursi ${seat.id} - ${seat.category}`}
+                    className={seatClass}
+                  >
+                    {isSold
+                      ? "×"
                       : isHeldByOther
-                        ? ", sedang dipesan"
-                        : ""
-                  }`}
-                  aria-pressed={isSelected}
-                  title={`Kursi ${seat.id} - ${seat.category}`}
-                  className={seatClass}
-                >
-                  {isSold
-                    ? "×"
-                    : isHeldByOther
-                      ? "◷"
-                      : isSelected
-                        ? "✓"
-                        : seat.number}
-                </button>
-              );
-            })}
+                        ? "◷"
+                        : isSelected
+                          ? "✓"
+                          : seat.number}
+                  </button>
+                );
+              }
+            )}
 
             <span className="row-label w-4 text-sm font-bold">
               {row}
@@ -161,6 +183,7 @@ export function SeatMap({ event }: SeatMapProps) {
 
       {/* Legenda */}
       <div className="flex flex-wrap gap-4 justify-center text-[13px] text-summa-ink">
+
         <span className="flex items-center gap-1.5">
           <i className="w-3.5 h-3.5 rounded bg-status-ok legend-available" />
           Tersedia
@@ -180,13 +203,15 @@ export function SeatMap({ event }: SeatMapProps) {
           <i className="w-3.5 h-3.5 rounded bg-summa-primary outline outline-1 outline-summa-tint" />
           Pilihanmu
         </span>
+
       </div>
 
       {/* Catatan */}
       <p className="mt-5 text-xs text-summa-ink/70">
-        Maksimal 4 kursi per transaksi. Kursi yang dipilih ditahan selama
-        10 menit.
+        Maksimal 4 kursi per transaksi. Kursi yang dipilih
+        ditahan selama 10 menit.
       </p>
+
     </div>
   );
 }

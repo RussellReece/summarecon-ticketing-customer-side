@@ -1,8 +1,9 @@
+
 "use client";
 
 import { create } from "zustand";
-import type { Seat } from "@/types/event";
 import { connectSocket } from "@/lib/socket/socketClient";
+import { Seat } from '@/types/event'; // <-- Impor Seat dari folder types
 
 // ==========================================
 // TYPES & CONSTANTS
@@ -56,30 +57,19 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   isLocked: false,
   timerId: null,
 
-  // ========================================
   // SET EVENT
-  // ========================================
-
   setEvent: (eventId) => {
     const state = get();
 
     if (state.eventId !== eventId) {
       get().resetBooking();
-
-      set({
-        eventId,
-      });
+      set({ eventId });
     }
   },
 
-  // ========================================
   // LOCKED SEATS BY OTHERS
-  // ========================================
-
   setLockedByOthers: (seatIds) =>
-    set({
-      lockedByOthers: seatIds,
-    }),
+    set({ lockedByOthers: seatIds }),
 
   addLockedByOther: (seatId) =>
     set((state) => ({
@@ -95,10 +85,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       ),
     })),
 
-  // ========================================
   // TOGGLE SEAT
-  // ========================================
-
   toggleSeat: (eventId, seat) => {
     const state = get();
 
@@ -111,7 +98,6 @@ export const useBookingStore = create<BookingState>((set, get) => ({
         ? state.selectedSeats
         : [];
 
-    // Prevent selecting seats locked by others
     if (state.lockedByOthers.includes(seat.id)) {
       return;
     }
@@ -120,7 +106,6 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       (item) => item.id === seat.id
     );
 
-    // Prevent selecting more than 4 seats
     if (!alreadySelected && seatsForEvent.length >= MAX_SEATS) {
       return;
     }
@@ -129,12 +114,9 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       ? seatsForEvent.filter((item) => item.id !== seat.id)
       : [...seatsForEvent, seat];
 
-    // No seats selected: reset booking
     if (selectedSeats.length === 0) {
       get().resetBooking();
-
       set({ eventId });
-
       return;
     }
 
@@ -158,42 +140,29 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       isLocked: true,
     });
 
-    // Start timer only once
     if (shouldStartTimer || !state.timerId) {
       get().startLockTimer();
     }
   },
 
-  // ========================================
   // START LOCK TIMER
-  // ========================================
-
   startLockTimer: () => {
     const { timerId } = get();
 
-    // Clear previous interval
     if (timerId) {
       clearInterval(timerId);
     }
 
-    set({
-      isLocked: true,
-      timeLeft: HOLD_DURATION_SECONDS,
-    });
+    set({ isLocked: true });
 
     const newTimerId = setInterval(() => {
       get().tick();
     }, 1000);
 
-    set({
-      timerId: newTimerId,
-    });
+    set({ timerId: newTimerId });
   },
 
-  // ========================================
   // COUNTDOWN
-  // ========================================
-
   tick: () => {
     const { expiresAt, selectedSeats } = get();
 
@@ -206,21 +175,15 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       Math.ceil((expiresAt - Date.now()) / 1000)
     );
 
-    // Time expired
     if (timeLeft <= 0) {
       get().resetBooking();
       return;
     }
 
-    set({
-      timeLeft,
-    });
+    set({ timeLeft });
   },
 
-  // ========================================
   // CLEAR TIMER
-  // ========================================
-
   clearLockTimer: () => {
     const { timerId } = get();
 
@@ -234,10 +197,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     });
   },
 
-  // ========================================
   // RESET BOOKING & RELEASE SEATS
-  // ========================================
-
   resetBooking: () => {
     const { timerId, selectedSeats } = get();
 
@@ -245,7 +205,6 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       clearInterval(timerId);
     }
 
-    // Release seats on server
     const socket = connectSocket();
 
     if (socket && selectedSeats.length > 0) {
