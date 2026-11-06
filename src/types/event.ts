@@ -4,8 +4,6 @@ export interface TicketEvent {
   category: string;
   venue: string;
   city: string;
-  date: string;
-  location: string;
   dateLabel: string;
   dateISO: string;
   time: string;
