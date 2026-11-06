@@ -1,8 +1,8 @@
-
 "use client";
 
 import { create } from "zustand";
 import type { Seat } from "@/types/event";
+import { connectSocket } from "@/lib/socket/socketClient";
 
 // ==========================================
 // TYPES & CONSTANTS
@@ -18,6 +18,7 @@ const MAX_SEATS = 4;
 interface BookingState {
   eventId: string | null;
   selectedSeats: Seat[];
+  lockedByOthers: string[];
 
   expiresAt: number | null;
   timeLeft: number;
@@ -28,6 +29,10 @@ interface BookingState {
   // Actions
   setEvent: (eventId: string) => void;
   toggleSeat: (eventId: string, seat: Seat) => void;
+
+  setLockedByOthers: (seatIds: string[]) => void;
+  addLockedByOther: (seatId: string) => void;
+  removeLockedByOther: (seatId: string) => void;
 
   startLockTimer: () => void;
   tick: () => void;
@@ -43,6 +48,7 @@ interface BookingState {
 export const useBookingStore = create<BookingState>((set, get) => ({
   eventId: null,
   selectedSeats: [],
+  lockedByOthers: [],
 
   expiresAt: null,
   timeLeft: HOLD_DURATION_SECONDS,
@@ -67,6 +73,29 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   },
 
   // ========================================
+  // LOCKED SEATS BY OTHERS
+  // ========================================
+
+  setLockedByOthers: (seatIds) =>
+    set({
+      lockedByOthers: seatIds,
+    }),
+
+  addLockedByOther: (seatId) =>
+    set((state) => ({
+      lockedByOthers: state.lockedByOthers.includes(seatId)
+        ? state.lockedByOthers
+        : [...state.lockedByOthers, seatId],
+    })),
+
+  removeLockedByOther: (seatId) =>
+    set((state) => ({
+      lockedByOthers: state.lockedByOthers.filter(
+        (id) => id !== seatId
+      ),
+    })),
+
+  // ========================================
   // TOGGLE SEAT
   // ========================================
 
@@ -77,11 +106,15 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       state.expiresAt !== null &&
       state.expiresAt <= Date.now();
 
-    // Different event or expired booking
     const seatsForEvent =
       state.eventId === eventId && !expired
         ? state.selectedSeats
         : [];
+
+    // Prevent selecting seats locked by others
+    if (state.lockedByOthers.includes(seat.id)) {
+      return;
+    }
 
     const alreadySelected = seatsForEvent.some(
       (item) => item.id === seat.id
@@ -145,6 +178,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
 
     set({
       isLocked: true,
+      timeLeft: HOLD_DURATION_SECONDS,
     });
 
     const newTimerId = setInterval(() => {
@@ -201,14 +235,25 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   },
 
   // ========================================
-  // RESET BOOKING
+  // RESET BOOKING & RELEASE SEATS
   // ========================================
 
   resetBooking: () => {
-    const { timerId } = get();
+    const { timerId, selectedSeats } = get();
 
     if (timerId) {
       clearInterval(timerId);
+    }
+
+    // Release seats on server
+    const socket = connectSocket();
+
+    if (socket && selectedSeats.length > 0) {
+      const seatIds = selectedSeats.map((seat) => seat.id);
+
+      socket.emit("release-seats", {
+        seatIds,
+      });
     }
 
     set({

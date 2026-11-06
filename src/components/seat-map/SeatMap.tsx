@@ -14,10 +14,9 @@ interface SeatMapProps {
 
 export function SeatMap({ event }: SeatMapProps) {
   const selectedSeats = useBookingStore((state) => state.selectedSeats);
-  const setEvent = useBookingStore((state) => state.setEvent);
   const toggleSeat = useBookingStore((state) => state.toggleSeat);
-
-  const [liveUnavailable, setLiveUnavailable] = useState<string[]>([]);
+  const setEvent = useBookingStore((state) => state.setEvent);
+  const lockedByOthers = useBookingStore((state) => state.lockedByOthers);
 
   useEffect(() => {
     setEvent(event.id);
@@ -25,15 +24,21 @@ export function SeatMap({ event }: SeatMapProps) {
     const socket = connectSocket();
     if (!socket) return;
 
-    const handleLocked = (seatId: string) =>
-      setLiveUnavailable((current) =>
-        current.includes(seatId) ? current : [...current, seatId]
-      );
+    const handleLocked = (seatId: string) => {
+      useBookingStore.setState((state) => ({
+        lockedByOthers: state.lockedByOthers.includes(seatId)
+          ? state.lockedByOthers
+          : [...state.lockedByOthers, seatId],
+      }));
+    };
 
-    const handleUnlocked = (seatId: string) =>
-      setLiveUnavailable((current) =>
-        current.filter((id) => id !== seatId)
-      );
+    const handleUnlocked = (seatId: string) => {
+      useBookingStore.setState((state) => ({
+        lockedByOthers: state.lockedByOthers.filter(
+          (id) => id !== seatId
+        ),
+      }));
+    };
 
     socket.on("seat:locked", handleLocked);
     socket.on("seat:unlocked", handleUnlocked);
@@ -87,8 +92,8 @@ export function SeatMap({ event }: SeatMapProps) {
               const isSold =
                 (row === "A" && [3, 4, 8].includes(seat.number)) ||
                 (row === "C" && [6, 7].includes(seat.number));
-              const isLiveHeld = liveUnavailable.includes(seat.id);
-              const isUnavailable = isSold || isLiveHeld;
+
+              const isHeldByOther = lockedByOthers.includes(seat.id);
 
               const isSelected = selectedSeats.some(
                 (item) => item.id === seat.id
@@ -97,13 +102,19 @@ export function SeatMap({ event }: SeatMapProps) {
               let seatClass =
                 "seat w-12 h-12 rounded-seat transition-all duration-200 border-none text-xs font-semibold ";
 
-              if (isUnavailable) {
-                seatClass += isLiveHeld
-                  ? "seat-held bg-status-hold cursor-not-allowed"
-                  : "seat-sold bg-status-sold cursor-not-allowed";
-              } else if (isSelected) {
+              let isDisabled = false;
+
+              if (isSelected) {
                 seatClass +=
                   "seat-selected bg-summa-primary outline outline-2 outline-summa-tint scale-110 text-white";
+              } else if (isSold) {
+                seatClass +=
+                  "seat-sold bg-status-sold cursor-not-allowed";
+                isDisabled = true;
+              } else if (isHeldByOther) {
+                seatClass +=
+                  "seat-held bg-status-hold cursor-not-allowed";
+                isDisabled = true;
               } else {
                 seatClass +=
                   "bg-status-ok hover:opacity-80 cursor-pointer";
@@ -117,16 +128,26 @@ export function SeatMap({ event }: SeatMapProps) {
                 <button
                   key={seat.id}
                   type="button"
-                  disabled={isUnavailable}
+                  disabled={isDisabled}
                   onClick={() => toggleSeat(event.id, seat)}
                   aria-label={`Baris ${row}, kursi ${seat.number}${
-                    isSold ? ", terjual" : isLiveHeld ? ", sedang dipesan" : ""
+                    isSold
+                      ? ", terjual"
+                      : isHeldByOther
+                        ? ", sedang dipesan"
+                        : ""
                   }`}
                   aria-pressed={isSelected}
                   title={`Kursi ${seat.id} - ${seat.category}`}
                   className={seatClass}
                 >
-                  {isSold ? "×" : isLiveHeld ? "◷" : isSelected ? "✓" : seat.number}
+                  {isSold
+                    ? "×"
+                    : isHeldByOther
+                      ? "◷"
+                      : isSelected
+                        ? "✓"
+                        : seat.number}
                 </button>
               );
             })}
