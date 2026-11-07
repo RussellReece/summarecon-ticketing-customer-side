@@ -200,15 +200,28 @@ function OrderForm({ params }: OrderPageProps) {
         // Fallback (ACR-03): Create local simulated order for seamless testing
         createdOrder = {
           id: `ORD-SIM-${Date.now()}`,
+          order_id: `ORD-SIM-${Date.now()}`,
           order_code: `ORD-${Date.now().toString().slice(-6)}`,
           status: "PENDING",
+          order_status: "PENDING",
+          payment_status: "UNPAID",
           total_amount: totalPrice,
+          ticket_count: allTicketEntries.length,
           created_at: new Date().toISOString(),
+          event: {
+            id: event?.id || id,
+            name: event?.title || "Bandung Tech & Creative Expo",
+            title: event?.title || "Bandung Tech & Creative Expo",
+            start_at: event?.dateISO || new Date().toISOString(),
+            status: event?.badge || "SALES_OPEN",
+          },
+          seat_ids: selectedSeats.map((s) => s.id),
           items: allTicketEntries.map((t) => ({
             id: t.key,
             seat_label: t.label,
             attendee_name: participants[t.key] || buyer.name,
             price: t.price,
+            category: t.category,
           })),
         };
       }

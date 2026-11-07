@@ -38,6 +38,44 @@ interface OrderHistoryItem {
   };
 }
 
+function loadLocalOrders(): OrderHistoryItem[] {
+  if (typeof window === "undefined") return [];
+  const results: OrderHistoryItem[] = [];
+
+  try {
+    const rawLocal = localStorage.getItem("summa_customer_orders");
+    if (rawLocal) {
+      const parsed = JSON.parse(rawLocal);
+      if (Array.isArray(parsed)) {
+        results.push(...parsed);
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  try {
+    const rawActive = sessionStorage.getItem("summa_active_order");
+    if (rawActive) {
+      const active = JSON.parse(rawActive);
+      if (
+        active &&
+        !results.some(
+          (o) =>
+            (o.id && o.id === active.id) ||
+            (o.order_code && o.order_code === active.order_code)
+        )
+      ) {
+        results.unshift(active);
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  return results;
+}
+
 export default function AccountOrdersPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<OrderHistoryItem[]>([]);
@@ -52,10 +90,21 @@ export default function AccountOrdersPage() {
         return fetchMyOrders();
       })
       .then((res) => {
-        const list = Array.isArray(res.data)
+        const apiList = Array.isArray(res.data)
           ? (res.data as unknown as OrderHistoryItem[])
           : (res.data as unknown as { items?: OrderHistoryItem[] })?.items || [];
-        setOrders(list);
+
+        const localList = loadLocalOrders();
+        const apiIds = new Set(apiList.map((o) => String(o.order_id || o.id)));
+        const apiCodes = new Set(apiList.map((o) => o.order_code).filter(Boolean));
+
+        const unmergedLocal = localList.filter(
+          (lo) =>
+            !apiIds.has(String(lo.order_id || lo.id)) &&
+            (!lo.order_code || !apiCodes.has(lo.order_code))
+        );
+
+        setOrders([...unmergedLocal, ...apiList]);
       })
       .catch((err: unknown) => {
         const errObj = err as { status?: number; message?: string };
@@ -63,7 +112,13 @@ export default function AccountOrdersPage() {
           router.push("/login?returnUrl=/account/orders");
           return;
         }
-        setError(errObj?.message || "Gagal memuat daftar pesanan.");
+
+        const localList = loadLocalOrders();
+        if (localList.length > 0) {
+          setOrders(localList);
+        } else {
+          setError(errObj?.message || "Gagal memuat daftar pesanan.");
+        }
       })
       .finally(() => setLoading(false));
   }, [router]);
@@ -198,7 +253,7 @@ export default function AccountOrdersPage() {
                       Detail Pesanan
                     </Link>
 
-                    {order.order_status === "PAID" && (
+                    {(order.order_status === "PAID" || order.status === "PAID") && (
                       <Link
                         href={`/ticket/${eventId}`}
                         className="px-4 py-1.5 text-xs font-bold rounded-lg bg-[#D93A2F] text-white hover:bg-[#c23329] transition shadow-xs"

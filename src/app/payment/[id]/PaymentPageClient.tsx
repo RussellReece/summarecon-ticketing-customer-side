@@ -54,10 +54,29 @@ function PaymentPageContent({ params }: PaymentPageProps) {
   // Active order retrieved from sessionStorage if available
   const [activeOrder] = useState<{
     id?: string;
+    order_id?: string;
     order_code?: string;
     total_amount?: number;
     status?: string;
+    order_status?: string;
+    payment_status?: string;
     paid_at?: string;
+    ticket_count?: number;
+    event?: {
+      id?: string | number;
+      name?: string;
+      title?: string;
+      start_at?: string;
+      status?: string;
+    };
+    seat_ids?: string[];
+    items?: Array<{
+      id: string;
+      seat_label?: string;
+      price?: number;
+      category?: string;
+      attendee_name?: string;
+    }>;
   } | null>(() => {
     if (typeof window !== "undefined") {
       const raw = sessionStorage.getItem("summa_active_order");
@@ -199,13 +218,55 @@ function PaymentPageContent({ params }: PaymentPageProps) {
 
         // Update stored order status
         if (typeof window !== "undefined") {
+          const resolvedOrderId = activeOrder?.id || activeOrder?.order_id || `ORD-SIM-${Date.now()}`;
+          const resolvedCode = activeOrder?.order_code || `ORD-${Date.now().toString().slice(-6)}`;
           const updated = {
             ...activeOrder,
-            id: activeOrder?.id || "ORD-QRREAL-1",
+            id: resolvedOrderId,
+            order_id: resolvedOrderId,
+            order_code: resolvedCode,
             status: "PAID",
+            order_status: "PAID",
+            payment_status: "PAID",
             paid_at: new Date().toISOString(),
+            total_amount: totalPrice,
+            ticket_count: allTickets.length,
+            event: activeOrder?.event || {
+              id: event?.id || id,
+              name: event?.title || "Bandung Tech & Creative Expo",
+              title: event?.title || "Bandung Tech & Creative Expo",
+              start_at: event?.dateISO || new Date().toISOString(),
+              status: event?.badge || "SALES_OPEN",
+            },
+            seat_ids: activeOrder?.seat_ids || selectedSeats.map((s) => s.id),
+            items:
+              activeOrder?.items ||
+              allTickets.map((t, idx) => ({
+                id: `item-${idx + 1}`,
+                seat_label: t.label,
+                price: t.price,
+                category: t.category,
+                attendee_name: "Peserta",
+              })),
+            e_ticket: {
+              successful_scan_count: 0,
+              valid_ticket_count: allTickets.length || 1,
+            },
           };
           sessionStorage.setItem("summa_active_order", JSON.stringify(updated));
+
+          try {
+            const rawLocal = localStorage.getItem("summa_customer_orders");
+            const localList: Array<{ id?: string; order_code?: string }> = rawLocal
+              ? JSON.parse(rawLocal)
+              : [];
+            const filtered = localList.filter(
+              (o) => o.id !== updated.id && o.order_code !== updated.order_code
+            );
+            localStorage.setItem("summa_customer_orders", JSON.stringify([updated, ...filtered]));
+          } catch {
+            // Ignore storage quota
+          }
         }
 
         // Navigate to E-Ticket

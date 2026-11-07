@@ -138,10 +138,61 @@ export function SeatMap({ event }: SeatMapProps) {
       });
       setVenueSections(parsedSections);
 
+      // Collect seats from paid orders for this event to reflect SOLD status in client
+      const paidSeatSet = new Set<string>();
+      if (typeof window !== "undefined") {
+        try {
+          const rawLocal = localStorage.getItem("summa_customer_orders");
+          const localOrders: Array<{
+            status?: string;
+            order_status?: string;
+            event?: { id?: string | number };
+            seat_ids?: Array<string | number>;
+            items?: Array<{ id?: string; seat_label?: string }>;
+          }> = rawLocal ? JSON.parse(rawLocal) : [];
+
+          const rawActive = sessionStorage.getItem("summa_active_order");
+          if (rawActive) {
+            const active = JSON.parse(rawActive);
+            if (active && !localOrders.some((o) => (o as { id?: string }).id === active.id)) {
+              localOrders.push(active);
+            }
+          }
+
+          localOrders.forEach((o) => {
+            const isPaid = o.status === "PAID" || o.order_status === "PAID";
+            const matchesEvent = !o.event?.id || String(o.event.id) === String(event.id);
+            if (isPaid && matchesEvent) {
+              if (Array.isArray(o.seat_ids)) {
+                o.seat_ids.forEach((sid) => paidSeatSet.add(String(sid).toUpperCase().replace(/\s+/g, "")));
+              }
+              if (Array.isArray(o.items)) {
+                o.items.forEach((it) => {
+                  if (it.seat_label) {
+                    paidSeatSet.add(it.seat_label.toUpperCase().replace(/\s+/g, ""));
+                    const m = it.seat_label.match(/([A-Z]\d+)/i);
+                    if (m) paidSeatSet.add(m[1].toUpperCase());
+                  }
+                  if (it.id) {
+                    paidSeatSet.add(String(it.id).toUpperCase().replace(/\s+/g, ""));
+                  }
+                });
+              }
+            }
+          });
+        } catch {
+          // Ignore parse errors
+        }
+      }
+
       const parsedSeats: VenueSeat[] = seatsData.map((s) => {
         const isBlockA = s.block_code === "BLOCK_A" || s.section_id?.includes("A");
         const price = isBlockA ? event.premiumPrice : event.priceFrom;
         const categoryName = isBlockA ? "Premium" : "Reguler";
+
+        const seatIdStr = String(s.event_seat_id || s.seat_label || `SEAT-${s.id}`).toUpperCase().replace(/\s+/g, "");
+        const seatLabelStr = (s.seat_label || `${s.row_label}${s.seat_number}`).toUpperCase().replace(/\s+/g, "");
+        const isPaid = paidSeatSet.has(seatIdStr) || paidSeatSet.has(seatLabelStr);
 
         return {
           event_seat_id: s.event_seat_id || s.seat_label || `SEAT-${s.id}`,
@@ -151,7 +202,7 @@ export function SeatMap({ event }: SeatMapProps) {
           section_id: s.section_id || (isBlockA ? "SEC-ATR-A" : "SEC-ATR-B"),
           block_code: s.block_code,
           position: s.position || { x: 50, y: 50, unit: "normalized_percent" },
-          status: s.status || "AVAILABLE",
+          status: isPaid ? "SOLD" : s.status || "AVAILABLE",
           price,
           category_name: categoryName,
           blocked_reason: s.blocked_reason,

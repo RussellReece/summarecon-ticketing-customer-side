@@ -42,6 +42,7 @@ function BookingPageContent({ params }: BookingPageProps) {
   const [event, setEvent] = useState<TicketEvent | null>(() => getEventById(id) || null);
   const [isLoading, setIsLoading] = useState(!event);
   const [isHolding, setIsHolding] = useState(false);
+  const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
 
   useEffect(() => {
     fetchEvent(id)
@@ -117,8 +118,11 @@ function BookingPageContent({ params }: BookingPageProps) {
   };
 
   return (
-    <div className="page-container booking-page py-6 max-w-7xl mx-auto px-4">
-      <Link className="back-link inline-flex items-center gap-1.5 text-xs font-semibold text-stone-600 hover:text-stone-900 mb-4 transition" href={`/event/${event.id}`}>
+    <div className="page-container booking-page py-6 max-w-7xl mx-auto px-4 pb-36 lg:pb-12">
+      <Link
+        className="back-link inline-flex items-center gap-1.5 text-xs font-semibold text-stone-600 hover:text-stone-900 mb-4 transition"
+        href={`/event/${event.id}`}
+      >
         ← Kembali ke Detail Acara
       </Link>
 
@@ -138,7 +142,7 @@ function BookingPageContent({ params }: BookingPageProps) {
         </div>
 
         {/* Reassurance text instead of premature timer */}
-        <div className="text-right max-w-xs bg-amber-50/80 border border-amber-200/80 p-3 rounded-xl text-left sm:text-right">
+        <div className="text-left md:text-right max-w-xs bg-amber-50/80 border border-amber-200/80 p-3 rounded-2xl">
           <span className="text-[11px] font-bold text-amber-900 uppercase block tracking-wider mb-0.5">
             Informasi Penahanan Kursi
           </span>
@@ -154,8 +158,8 @@ function BookingPageContent({ params }: BookingPageProps) {
           <SeatMap event={event} />
         </section>
 
-        {/* Right: Summary & Lanjut CTA */}
-        <aside className="selection-panel bg-white border border-stone-200 rounded-2xl p-6 shadow-sm sticky top-6">
+        {/* Right (Desktop Only): Summary & Lanjut CTA */}
+        <aside className="selection-panel hidden lg:block bg-white border border-stone-200 rounded-2xl p-6 shadow-sm sticky top-6">
           <span className="booking-card-label text-[11px] font-bold text-stone-400 uppercase tracking-wider block mb-1">
             RINGKASAN PILIHAN
           </span>
@@ -195,21 +199,113 @@ function BookingPageContent({ params }: BookingPageProps) {
 
           <button
             type="button"
-            className="w-full py-3.5 px-4 rounded-xl bg-[#D93A2F] text-white font-bold text-sm hover:bg-[#c23329] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm flex items-center justify-between"
+            className="w-full py-4 px-4 rounded-xl bg-[#D93A2F] text-white font-bold text-sm hover:bg-[#c23329] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm flex items-center justify-between"
             onClick={handleBooking}
             disabled={totalCount === 0 || isHolding || isPending || isCancelled}
           >
             <span>
-              {isHolding || isPending ? "Mengunci tiket..." : "Lanjut ke Data Peserta →"}
+              {isHolding || isPending
+                ? "Mengunci tiket..."
+                : totalCount === 0
+                ? "Pilih kursi dulu"
+                : "Lanjut ke Data Peserta →"}
             </span>
 
             {totalPrice > 0 && (
-              <span className="font-black bg-white/20 px-2.5 py-0.5 rounded-lg text-xs">
+              <span className="font-black bg-white/20 px-2.5 py-1 rounded-lg text-xs">
                 {formatRupiah(totalPrice)}
               </span>
             )}
           </button>
         </aside>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════════════
+          MOBILE STICKY BOTTOM SHEET (< 1024px)
+         ═══════════════════════════════════════════════════════════════════════════ */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-stone-200 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] transition-all">
+        {/* Expandable Drawer Content */}
+        {isMobileSheetOpen && (
+          <div className="p-4 border-b border-stone-200 max-h-[50vh] overflow-y-auto bg-stone-50/70">
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-stone-200">
+              <span className="text-xs font-bold text-stone-700 uppercase tracking-wider">
+                Detail Tiket Terpilih
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsMobileSheetOpen(false)}
+                className="text-stone-500 hover:text-stone-800 text-xs font-semibold p-1"
+              >
+                ✕ Tutup
+              </button>
+            </div>
+            <SelectionSummaryClient />
+            <p className="text-[10px] text-stone-500 mt-2 italic">
+              Kursi ditahan selama 10 menit setelah kamu menekan tombol Lanjut.
+            </p>
+          </div>
+        )}
+
+        {/* Collapsed Bar / Trigger Handle */}
+        <div className="p-3 sm:p-4 pb-[max(16px,env(safe-area-inset-bottom))] bg-white">
+          {/* Drawer Drag Pill */}
+          <button
+            type="button"
+            onClick={() => setIsMobileSheetOpen((prev) => !prev)}
+            className="w-full flex items-center justify-center py-1 -mt-2 mb-1.5 text-stone-400 hover:text-stone-600"
+            aria-label={isMobileSheetOpen ? "Tutup ringkasan" : "Buka ringkasan"}
+          >
+            <div className="w-10 h-1 bg-stone-300 rounded-full" />
+          </button>
+
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <button
+              type="button"
+              onClick={() => setIsMobileSheetOpen((prev) => !prev)}
+              className="text-left flex flex-col"
+            >
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-stone-900">
+                  {totalCount > 0 ? `${totalCount} tiket dipilih` : "Belum ada tiket"}
+                </span>
+                <span className="text-[10px] text-[#D93A2F] underline font-medium">
+                  {isMobileSheetOpen ? "Sembunyikan detail ▲" : "Lihat detail ▼"}
+                </span>
+              </div>
+              <strong className="text-sm sm:text-base font-black text-[#D93A2F]">
+                {totalPrice > 0 ? formatRupiah(totalPrice) : "Rp 0"}
+              </strong>
+            </button>
+
+            {conflictError && (
+              <span className="text-[10px] text-rose-700 max-w-[150px] truncate font-medium">
+                {conflictError}
+              </span>
+            )}
+          </div>
+
+          {/* Large Touch-Friendly Lanjut CTA (>= 48px) */}
+          <button
+            type="button"
+            className="w-full min-h-[48px] py-3.5 px-4 rounded-xl bg-[#D93A2F] text-white font-bold text-sm hover:bg-[#c23329] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm flex items-center justify-between"
+            onClick={handleBooking}
+            disabled={totalCount === 0 || isHolding || isPending || isCancelled}
+          >
+            <span>
+              {isHolding || isPending
+                ? "Mengunci tiket..."
+                : totalCount === 0
+                ? "Pilih kursi dulu"
+                : "Lanjut ke Data Peserta →"}
+            </span>
+
+            {totalPrice > 0 && (
+              <span className="font-black bg-white/20 px-2.5 py-1 rounded-lg text-xs">
+                {formatRupiah(totalPrice)}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -359,6 +359,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .detail-hero h1 { font-size: 39px; }
   .detail-hero .event-badge { top: 14px; right: 14px; }
   .detail-columns { grid-template-columns: 1fr; gap: 30px; padding: 38px 0 0; }
+  .detail-columns .booking-card { margin-inline: auto; max-width: 520px; width: 100%; justify-self: center; }
   .detail-copy h2 { font-size: 29px; }
   .detail-facts { gap: 20px; }
   .booking-title-row { align-items: flex-start; flex-direction: column; gap: 19px; }
