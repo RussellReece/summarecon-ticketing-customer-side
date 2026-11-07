@@ -242,18 +242,18 @@ async function EventPageContent({ params }: EventPageProps) {
 
           {/* Ticket Categories List */}
           {categories.length > 0 && (
-            <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
+            <div className="bg-white border border-stone-200 rounded-2xl p-4 sm:p-6 shadow-sm">
               <h3 className="font-bold text-base text-stone-900 mb-3">
                 Kategori Tiket Tersedia
               </h3>
               <div className="divide-y divide-stone-100 text-xs">
                 {categories.map((c) => (
-                  <div key={c.id} className="py-3 flex items-center justify-between">
-                    <div>
-                      <span className="font-bold text-stone-900 text-sm block">{c.name}</span>
-                      <span className="text-stone-500">Kuota contoh: {c.quota} tiket</span>
+                  <div key={c.id} className="py-3 flex items-start sm:items-center justify-between gap-3">
+                    <div className="min-w-0 pr-2">
+                      <span className="font-bold text-stone-900 text-sm block leading-snug">{c.name}</span>
+                      <span className="text-stone-500 text-xs block mt-0.5">Kuota contoh: {c.quota} tiket</span>
                     </div>
-                    <strong className="text-sm font-extrabold text-[#D93A2F]">
+                    <strong className="text-sm sm:text-base font-extrabold text-[#D93A2F] shrink-0 text-right whitespace-nowrap pt-0.5 sm:pt-0">
                       {formatRupiah(c.price)}
                     </strong>
                   </div>

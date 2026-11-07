@@ -25,12 +25,12 @@ export function StatusBadge({
 
   return (
     <span
-      className={`inline-flex items-center rounded-full font-medium border ${meta.bgClass} ${meta.textClass} ${meta.borderClass} ${sizeClasses[size]} ${className}`}
+      className={`inline-flex items-center whitespace-nowrap shrink-0 rounded-full font-medium border ${meta.bgClass} ${meta.textClass} ${meta.borderClass} ${sizeClasses[size]} ${className}`}
     >
-      <span className="font-semibold text-[0.9em] leading-none select-none" aria-hidden="true">
+      <span className="font-semibold text-[0.9em] leading-none select-none shrink-0" aria-hidden="true">
         {meta.symbol}
       </span>
-      <span>{customLabel ?? meta.label}</span>
+      <span className="whitespace-nowrap">{customLabel ?? meta.label}</span>
     </span>
   );
 }

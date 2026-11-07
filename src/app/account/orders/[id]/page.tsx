@@ -381,14 +381,14 @@ function OrderDetailContent({ params }: OrderDetailPageProps) {
                 className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-stone-50 border border-stone-200 text-xs"
               >
                 <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-bold text-stone-900 text-sm">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1.5">
+                    <span className="font-bold text-stone-900 text-sm whitespace-nowrap">
                       {cleanSeatLabel}
                     </span>
-                    <span className="font-medium bg-stone-200 text-stone-700 px-2 py-0.5 rounded-full text-[11px]">
+                    <span className="font-medium bg-stone-200 text-stone-700 px-2 py-0.5 rounded-full text-[11px] whitespace-nowrap shrink-0">
                       {item.category || "Reguler"}
                     </span>
-                    <StatusBadge status={item.status || "ISSUED"} size="sm" />
+                    <StatusBadge status={item.status || "ISSUED"} size="sm" className="whitespace-nowrap shrink-0" />
                   </div>
                   <div className="text-stone-600">
                     Nama Peserta: <strong className="text-stone-900">{attendee}</strong>
