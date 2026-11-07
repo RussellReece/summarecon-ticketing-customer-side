@@ -1,217 +1,326 @@
+// src/components/seat-map/SeatMap.tsx
+//
+// Rebuilt data-driven Seat Map integrating VenueRenderer with the live API.
+// Eliminates the old hardcoded 4x10 grid and Socket.IO dependencies.
+// Handles all 3 venues: Atrium Cibadak (80 seats, 2 blocks), Downtown Walk (0 seats), Sawarga Courtyard (mixed).
 
 "use client";
 
-import { useEffect } from "react";
-import type { Seat, TicketEvent } from "@/types/event";
+import React, { useState, useEffect, useCallback } from "react";
+import type { TicketEvent, Seat } from "@/types/event";
 import { useBookingStore } from "@/lib/store/useBookingStore";
-import { connectSocket } from "@/lib/socket/socketClient";
-
-const rows = ["A", "B", "C", "D"];
-const seatsPerRow = 10;
+import { fetchEvent, fetchEventSeats } from "@/services/customerApi";
+import {
+  VenueRenderer,
+  type VenueSeat,
+  type VenueSection,
+  type VenueLayoutElement,
+} from "./VenueRenderer";
+import { getVenueElements } from "@/lib/data/venueTemplates";
 
 interface SeatMapProps {
   event: TicketEvent;
 }
 
+interface RawSeat {
+  event_seat_id?: string;
+  seat_label?: string;
+  row_label?: string;
+  seat_number?: string | number;
+  section_id?: string;
+  block_code?: string;
+  position?: { x: number; y: number; unit?: string };
+  status?: string;
+  blocked_reason?: string | null;
+  id?: number | string;
+}
+
+interface RawCategory {
+  ticket_category_id?: string;
+  category_name?: string;
+  price?: number;
+}
+
+interface RawSection {
+  section_id: string;
+  event_section_id?: string;
+  section_name: string;
+  booking_type?: "BOOK_BY_SEAT" | "BOOK_BY_QUOTA" | "STANDING";
+  capacity?: number;
+  available?: number;
+  sold?: number;
+  reserved?: number;
+  blocked?: number;
+}
+
+interface RawLiveEvent {
+  event_status?: string;
+  venue?: { name?: string };
+  layout?: {
+    template_id?: string;
+    elements?: VenueLayoutElement[];
+  };
+  categories?: RawCategory[];
+  sections?: RawSection[];
+}
+
 export function SeatMap({ event }: SeatMapProps) {
-  const selectedSeats = useBookingStore(
-    (state) => state.selectedSeats
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [layoutElements, setLayoutElements] = useState<VenueLayoutElement[]>([]);
+  const [venueSeats, setVenueSeats] = useState<VenueSeat[]>([]);
+  const [venueSections, setVenueSections] = useState<VenueSection[]>([]);
+  const [venueName, setVenueName] = useState<string>(event.venue || "Summarecon Mall Bandung");
+  const [eventStatus, setEventStatus] = useState<string>(
+    event.badge === "CANCELLED" ? "CANCELLED" : "SALES_OPEN"
   );
 
-  const toggleSeat = useBookingStore(
-    (state) => state.toggleSeat
-  );
+  // Booking store
+  const selectedSeats = useBookingStore((s) => s.selectedSeats);
+  const selectedQuota = useBookingStore((s) => s.selectedQuota);
+  const toggleSeatAction = useBookingStore((s) => s.toggleSeat);
+  const setQuotaAction = useBookingStore((s) => s.setQuota);
+  const setEventAction = useBookingStore((s) => s.setEvent);
+  const conflictError = useBookingStore((s) => s.conflictError);
 
-  const setEvent = useBookingStore(
-    (state) => state.setEvent
-  );
+  const selectedSeatIds = selectedSeats.map((s) => s.id);
 
-  const lockedByOthers = useBookingStore(
-    (state) => state.lockedByOthers
-  );
-
+  // Initialize event in store
   useEffect(() => {
-    setEvent(event.id);
+    setEventAction(event.id);
+  }, [event.id, setEventAction]);
 
-    const socket = connectSocket();
-    if (!socket) return;
+  const processApiData = useCallback(
+    (liveEventData: RawLiveEvent | null, seatsData: RawSeat[]) => {
+      const resolvedVenueName = liveEventData?.venue?.name || event.venue || "Atrium Cibadak";
+      setVenueName(resolvedVenueName);
 
-    const handleLocked = (seatId: string) => {
-      useBookingStore.setState((state) => ({
-        lockedByOthers: state.lockedByOthers.includes(seatId)
-          ? state.lockedByOthers
-          : [...state.lockedByOthers, seatId],
-      }));
-    };
+      const resolvedStatus =
+        liveEventData?.event_status || (event.badge === "CANCELLED" ? "CANCELLED" : "SALES_OPEN");
+      setEventStatus(resolvedStatus);
 
-    const handleUnlocked = (seatId: string) => {
-      useBookingStore.setState((state) => ({
-        lockedByOthers: state.lockedByOthers.filter(
-          (id) => id !== seatId
-        ),
-      }));
-    };
+      let elements: VenueLayoutElement[] = [];
+      if (liveEventData?.layout?.elements && liveEventData.layout.elements.length > 0) {
+        elements = liveEventData.layout.elements;
+      } else {
+        const templateId = liveEventData?.layout?.template_id || event.id;
+        elements = getVenueElements(templateId);
+      }
+      setLayoutElements(elements);
 
-    socket.on("seat:locked", handleLocked);
-    socket.on("seat:unlocked", handleUnlocked);
+      const categories: RawCategory[] = liveEventData?.categories || [];
+      const sectionsRaw: RawSection[] = liveEventData?.sections || [];
+
+      const parsedSections: VenueSection[] = sectionsRaw.map((s) => {
+        const cat = categories.find(
+          (c) =>
+            c.category_name?.toLowerCase().includes(s.section_name?.toLowerCase()) ||
+            c.ticket_category_id?.includes(s.section_id)
+        );
+        const price =
+          cat?.price ||
+          (s.section_name?.toLowerCase().includes("a") ? event.premiumPrice : event.priceFrom);
+
+        return {
+          section_id: s.section_id,
+          event_section_id: s.event_section_id,
+          section_name: s.section_name,
+          booking_type:
+            (s.booking_type as "BOOK_BY_SEAT" | "BOOK_BY_QUOTA" | "STANDING") || "BOOK_BY_SEAT",
+          capacity: s.capacity || 40,
+          available: s.available ?? ((s.capacity || 40) - (s.sold || 0) - (s.blocked || 0)),
+          sold: s.sold || 0,
+          reserved: s.reserved || 0,
+          price,
+          category_name: cat?.category_name || s.section_name,
+        };
+      });
+      setVenueSections(parsedSections);
+
+      const parsedSeats: VenueSeat[] = seatsData.map((s) => {
+        const isBlockA = s.block_code === "BLOCK_A" || s.section_id?.includes("A");
+        const price = isBlockA ? event.premiumPrice : event.priceFrom;
+        const categoryName = isBlockA ? "Premium" : "Reguler";
+
+        return {
+          event_seat_id: s.event_seat_id || s.seat_label || `SEAT-${s.id}`,
+          seat_label: s.seat_label || `${s.row_label}${s.seat_number}`,
+          row_label: s.row_label || s.seat_label?.charAt(0) || "A",
+          seat_number: s.seat_number || s.seat_label?.slice(1) || 1,
+          section_id: s.section_id || (isBlockA ? "SEC-ATR-A" : "SEC-ATR-B"),
+          block_code: s.block_code,
+          position: s.position || { x: 50, y: 50, unit: "normalized_percent" },
+          status: s.status || "AVAILABLE",
+          price,
+          category_name: categoryName,
+          blocked_reason: s.blocked_reason,
+        };
+      });
+
+      setVenueSeats(parsedSeats);
+      setLoading(false);
+    },
+    [event]
+  );
+
+  // Initial data load effect
+  useEffect(() => {
+    let active = true;
+
+    async function loadData() {
+      try {
+        let liveEventData: RawLiveEvent | null = null;
+        try {
+          const evRes = await fetchEvent(event.id);
+          liveEventData = evRes.data as unknown as RawLiveEvent;
+        } catch {
+          // Continue
+        }
+
+        let seatsData: RawSeat[] = [];
+        try {
+          const seatsRes = await fetchEventSeats(event.id);
+          const dataPayload = seatsRes.data as unknown as { items?: RawSeat[] } | RawSeat[];
+          seatsData = Array.isArray(dataPayload) ? dataPayload : dataPayload?.items || [];
+        } catch {
+          // Continue
+        }
+
+        if (active) {
+          processApiData(liveEventData, seatsData);
+        }
+      } catch (err: unknown) {
+        if (active) {
+          const errObj = err as { message?: string };
+          setError(errObj?.message || "Gagal memuat denah kursi. Silakan refresh.");
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadData();
 
     return () => {
-      socket.off("seat:locked", handleLocked);
-      socket.off("seat:unlocked", handleUnlocked);
+      active = false;
     };
-  }, [event.id, setEvent]);
+  }, [event.id, processApiData]);
 
-  function makeSeat(row: string, number: number): Seat {
-    const category =
-      row === "A" || row === "B"
-        ? "Platinum"
-        : "Regular";
+  // Polling refresh handler
+  const handleRefresh = useCallback(async () => {
+    try {
+      const seatsRes = await fetchEventSeats(event.id);
+      const dataPayload = seatsRes.data as unknown as { items?: RawSeat[] } | RawSeat[];
+      const freshSeats = Array.isArray(dataPayload) ? dataPayload : dataPayload?.items || [];
 
-    const area = category;
+      setVenueSeats((prev) => {
+        return prev.map((seat) => {
+          const fresh = freshSeats.find(
+            (s) => (s.event_seat_id || s.seat_label) === seat.event_seat_id
+          );
+          if (fresh && fresh.status) {
+            return { ...seat, status: fresh.status };
+          }
+          return seat;
+        });
+      });
+    } catch {
+      // ignore background poll failure
+    }
+  }, [event.id]);
 
-    return {
-      id: `${row}${String(number).padStart(2, "0")}`,
-      row,
-      number,
-      category,
-      area,
-      price:
-        category === "Platinum"
-          ? event.premiumPrice
-          : event.priceFrom,
-    };
+  // Handle seat toggle
+  const handleToggleSeat = useCallback(
+    (vSeat: VenueSeat) => {
+      const seatForStore: Seat = {
+        id: vSeat.event_seat_id,
+        row: vSeat.row_label,
+        number: Number(vSeat.seat_number) || 1,
+        category: vSeat.category_name || "Reguler",
+        price: vSeat.price || event.priceFrom,
+        area: vSeat.block_code || vSeat.section_id,
+        status: vSeat.status,
+      };
+      toggleSeatAction(event.id, seatForStore);
+    },
+    [event.id, event.priceFrom, toggleSeatAction]
+  );
+
+  // Handle quota change
+  const handleQuotaChange = useCallback(
+    (sectionId: string, count: number) => {
+      const section = venueSections.find((s) => s.section_id === sectionId);
+      if (!section) return;
+
+      setQuotaAction({
+        sectionId,
+        count,
+        sectionName: section.section_name,
+        categoryName: section.category_name,
+        price: section.price,
+      });
+    },
+    [venueSections, setQuotaAction]
+  );
+
+  if (loading) {
+    return (
+      <div className="w-full bg-white border border-stone-200 rounded-2xl p-12 text-center shadow-sm">
+        <div className="w-8 h-8 border-3 border-[#D93A2F] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+        <p className="text-sm font-semibold text-stone-700">Memuat denah venue & ketersediaan kursi...</p>
+        <p className="text-xs text-stone-400 mt-1">Mengambil data resmi dari backend live</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w-full bg-rose-50 border border-rose-200 rounded-2xl p-8 text-center text-rose-800">
+        <p className="font-bold text-base mb-1">Terjadi kendala saat memuat denah</p>
+        <p className="text-sm mb-4">{error}</p>
+        <button
+          type="button"
+          onClick={() => {
+            setLoading(true);
+            setError(null);
+          }}
+          className="px-4 py-2 bg-[#D93A2F] text-white rounded-lg text-xs font-semibold hover:bg-[#c23329] transition"
+        >
+          Coba Muat Ulang
+        </button>
+      </div>
+    );
   }
 
   return (
-    <div className="bg-white border border-summa-line rounded-ticket p-6 text-center max-w-2xl mx-auto shadow-summa">
+    <div className="w-full flex flex-col gap-4">
+      {/* Conflict / limit error message if any */}
+      {conflictError && (
+        <div
+          role="alert"
+          className="p-3.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs sm:text-sm font-medium flex items-center gap-2.5 shadow-sm"
+        >
+          <span className="text-base">⚠️</span>
+          <span>{conflictError}</span>
+        </div>
+      )}
 
-      {/* Panggung */}
-      <div className="bg-summa-gradient text-white rounded-t-lg rounded-b-[40px] py-2 font-display font-bold text-xs tracking-[0.3em] max-w-[340px] mx-auto mb-8">
-        PANGGUNG
-      </div>
-
-      {/* Grid Kursi */}
-      <div
-        className="seat-map flex flex-col gap-3 justify-center max-w-md mx-auto mb-6"
-        role="group"
-        aria-label="Pilih kursi"
-      >
-        {rows.map((row) => (
-          <div
-            className="seat-row flex items-center justify-center gap-2"
-            key={row}
-          >
-            <span className="row-label w-4 text-sm font-bold">
-              {row}
-            </span>
-
-            {Array.from(
-              { length: seatsPerRow },
-              (_, index) => {
-                const seat = makeSeat(row, index + 1);
-
-                const isSold =
-                  (row === "A" && [3, 4, 8].includes(seat.number)) ||
-                  (row === "C" && [6, 7].includes(seat.number));
-
-                const isHeldByOther =
-                  lockedByOthers.includes(seat.id);
-
-                const isSelected = selectedSeats.some(
-                  (item) => item.id === seat.id
-                );
-
-                let seatClass =
-                  "seat w-12 h-12 rounded-seat transition-all duration-200 border-none text-xs font-semibold ";
-
-                let isDisabled = false;
-
-                if (isSelected) {
-                  seatClass +=
-                    "seat-selected bg-summa-primary outline outline-2 outline-summa-tint scale-110 text-white";
-                } else if (isSold) {
-                  seatClass +=
-                    "seat-sold bg-status-sold cursor-not-allowed";
-                  isDisabled = true;
-                } else if (isHeldByOther) {
-                  seatClass +=
-                    "seat-held bg-status-hold cursor-not-allowed";
-                  isDisabled = true;
-                } else {
-                  seatClass +=
-                    "bg-status-ok hover:opacity-80 cursor-pointer";
-                }
-
-                if (row === "A" || row === "B") {
-                  seatClass += " seat-premium";
-                }
-
-                return (
-                  <button
-                    key={seat.id}
-                    type="button"
-                    disabled={isDisabled}
-                    onClick={() => toggleSeat(event.id, seat)}
-                    aria-label={`Baris ${row}, kursi ${seat.number}${isSold
-                        ? ", terjual"
-                        : isHeldByOther
-                          ? ", sedang dipesan"
-                          : ""
-                      }`}
-                    aria-pressed={isSelected}
-                    title={`Kursi ${seat.id} - ${seat.category}`}
-                    className={seatClass}
-                  >
-                    {isSold
-                      ? "×"
-                      : isHeldByOther
-                        ? "◷"
-                        : isSelected
-                          ? "✓"
-                          : seat.number}
-                  </button>
-                );
-              }
-            )}
-
-            <span className="row-label w-4 text-sm font-bold">
-              {row}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* Legenda */}
-      <div className="flex flex-wrap gap-4 justify-center text-[13px] text-summa-ink">
-
-        <span className="flex items-center gap-1.5">
-          <i className="w-3.5 h-3.5 rounded bg-status-ok legend-available" />
-          Tersedia
-        </span>
-
-        <span className="flex items-center gap-1.5">
-          <i className="w-3.5 h-3.5 rounded bg-status-hold legend-held" />
-          Dipesan
-        </span>
-
-        <span className="flex items-center gap-1.5">
-          <i className="w-3.5 h-3.5 rounded bg-status-sold legend-sold" />
-          Terisi
-        </span>
-
-        <span className="flex items-center gap-1.5">
-          <i className="w-3.5 h-3.5 rounded bg-summa-primary outline outline-1 outline-summa-tint" />
-          Pilihanmu
-        </span>
-
-      </div>
-
-      {/* Catatan */}
-      <p className="mt-5 text-xs text-summa-ink/70">
-        Maksimal 4 kursi per transaksi. Kursi yang dipilih
-        ditahan selama 10 menit.
-      </p>
-
+      {/* Main Venue Renderer */}
+      <VenueRenderer
+        eventId={event.id}
+        eventName={event.title}
+        eventStatus={eventStatus}
+        venueName={venueName}
+        layoutElements={layoutElements}
+        seats={venueSeats}
+        sections={venueSections}
+        selectedSeatIds={selectedSeatIds}
+        selectedQuota={selectedQuota}
+        onToggleSeat={handleToggleSeat}
+        onQuotaChange={handleQuotaChange}
+        onRefreshSeats={handleRefresh}
+        maxTicketsTotal={4}
+      />
     </div>
   );
 }

@@ -2,7 +2,8 @@ Style Guide · Bandung Build Challenge 2026
 
 # Summarecon Ticketing
 
-Bahasa visual untuk sistem tiket event di Summarecon Mall Bandung: hangat, jelas, dan meyakinkan saat memilih kursi.
+Bahasa visual untuk sistem tiket event di Summarecon Mall Bandung: hangat, jelas, dan meyakinkan saat memilih kursi.\
+Versi revisi: mengikuti Dokumen Analisis Final dan Blueprint Venue (6 November 2026).
 
 ## 1. Konsep
 
@@ -58,25 +59,39 @@ Teks utama, mode gelap
 
 `135°: #D93A2F → #EE6A35 → #F4A23B` · Dipakai untuk hero, header tiket, dan panggung seat map. Jangan dipakai untuk teks kecil.
 
-### Warna status
+### Status kursi dan kuota
 
 Aa
 
-**Tersedia / Valid**`#1F8F7E`
+**Tersedia**`#1F8F7E`\
+AVAILABLE · dapat dipilih
 
-Aa
+⋯
 
-**Dipesan / Sudah dipakai**`#E9A12B`
+**Ditahan**`#E9A12B`\
+LOCKED · 10 menit sejak isi data
 
-Aa
+✕
 
-**Terjual**`#BDB3B8`
+**Terjual**`#6B5A6E`\
+SOLD · plum gelap + ✕
 
-Aa
+**Diblokir**`arsiran abu`\
+BLOCKED · oleh panitia
 
-**Tidak valid / Error**`#B3261E`
+✓
 
-Kursi tersedia memakai teal (bukan hijau umum) agar kontras dengan Vermilion saat kursi dipilih. Pilihan pengguna selalu merah, status sistem tidak pernah merah.
+**Dipilih**`#D93A2F`\
+Pilihan pengguna
+
+!
+
+**Error / Gagal**`#B3261E`\
+Hanya untuk kegagalan
+
+Empat status inventori mengikuti dokumen final (tersedia, ditahan, terjual, diblokir). Terjual tidak lagi memakai abu terang dan merah dipertahankan untuk pilihan pengguna, sehingga tidak ada dua status yang tampak sama. Setiap status juga punya simbol (✕, ⋯, arsiran, ✓) agar terbaca tanpa warna.
+
+Area **Book by Quota** dan **Standing** tidak punya status per kursi. Tampilkan angka terisi/kapasitas, misalnya **16/50**, dengan batang progres: di bawah 80% teal, 80–99% amber, 100% plum gelap dan tombol nonaktif.
 
 ## 3. Tipografi
 
@@ -94,7 +109,7 @@ Heading 2 · Plus Jakarta Sans SemiBold 600 · 20/28
 
 ### Kategori tiket
 
-Body · DM Sans Regular 400 · 16/24Pilih kursi pada denah. Kursi yang kamu pilih ditahan selama 10 menit.
+Body · DM Sans Regular 400 · 16/24Pilih kursi pada denah. Kursi ditahan 10 menit setelah kamu masuk ke langkah isi data.
 
 Caption · DM Sans Medium 500 · 13/18Harga sudah termasuk pajak
 
@@ -122,42 +137,45 @@ Garis 1.75 px, ujung membulat, satu gaya konsisten
 
 Terbayar Menunggu pembayaran Kedaluwarsa Refund diproses
 
-### Denah kursi (interaktif)
+### Denah per venue (sesuai blueprint)
 
-PANGGUNG
+Tiga venue dari blueprint: V1 Downtown Walk, V2 Atrium (Cibadak, Cileutik, atau Ciunik), dan V3 Sawarga Courtyard. Setiap denah mengikuti susunan di blueprint: panggung dan backstage di atas, section di tengah, lalu jalur sirkulasi dan fasilitas di bawah. Ganti venue, pilih kursi atau kuota, lalu jalankan alur pemesanan sampai e-ticket.
 
-Tersedia Sedang dipesan Terjual Pilihanmu
+TersediaDitahanTerjualDiblokirPilihanmu
 
-Belum ada kursi dipilih
+Alur waktu: memilih kursi belum mengunci apa pun. Kursi ditahan 10 menit saat pengguna masuk ke langkah isi data, lalu pembayaran QRIS sandbox diberi waktu maksimal 7 menit. Angka kursi dan kuota hanya contoh data prototype, bukan kapasitas resmi.
 
-Aksesibilitas: selain warna, kursi terjual dan dipesan diberi ikon kecil atau pola pada versi final, dan label baris-nomor tampil saat disentuh.
+### E-ticket (satu QR per order)
 
-### E-ticket
-
-E-TICKET
+E-TICKET · ORD-2026-001
 
 ### Konser Akustik Bandung
 
-Sab, 14 Nov 2026 · 19.00 · Summarecon Mall Bandung
+Sab, 14 Nov 2026 · 19.00 · Sawarga Courtyard
 
-Kursi\
-**B-07**
+Sari A. · A07SUDAH MASUK
 
-Kategori\
-**Gold**
+Budi P. · A08BELUM MASUK
 
-Peserta\
-**Sari A.**
+Dewi R. · A09BELUM MASUK
+
+**Scan 1/3**
+
+Satu QR untuk seluruh tiket dalam order. Dikirim juga lewat WhatsApp.
 
 ### Hasil check-in panitia
 
-✓ Valid · B-07 · Sari A.
+✓ Valid · Scan 1/3 · ORD-2026-001
 
-! Sudah digunakan · 18.42
+✓ Valid · Scan 3/3 · QR kini habis
 
-✕ Tidak valid · bukan tiket event ini
+! Batas scan tercapai · 3/3
 
-Hasil scan memakai warna, ikon, dan teks sekaligus, serta tampil layar penuh agar terbaca di keramaian.
+✕ Bukan tiket untuk event ini
+
+✕ Tiket tidak berlaku · refund atau event dibatalkan
+
+Batas scan mengikuti jumlah tiket valid. Order 3 tiket dengan 1 refund hanya dapat dipakai 2 orang, dan layar menampilkan sisa yang valid.
 
 ## 6. Suara dan Prinsip
 
@@ -177,7 +195,7 @@ Hasil scan memakai warna, ikon, dan teks sekaligus, serta tampil layar penuh aga
 
 Catatan: logo dan nama Summarecon milik pemiliknya. Pada prototype, tampilkan sebagai konteks lokasi acara, bukan sebagai identitas produk tim.
 
-## 7. Ilustrasi Summarecon
+## 7. Ilustrasi Kelopak
 
 Satu bentuk dasar: kelopak ramping dengan ujung runcing, disusun menjadi kipas seperti logo Summarecon. Bentuk ini dipakai berulang sebagai ikon merek, pola latar, denah melengkung, loader, dan ilustrasi status.
 
@@ -207,11 +225,11 @@ Tiket terjual
 
 72% dari kuota
 
-Kursi ditahan untuk kamu
+Sisa waktu isi data
 
 10:00
 
-Selesaikan pembayaran sebelum waktu habis
+Kursi ditahan 10 menit sejak langkah isi data; bayar maks. 7 menit
 
 **Tombol Shimmer**Kilau hanya pada CTA utama.
 
@@ -289,7 +307,7 @@ Gold · B-08Rp 350.000
 
 TotalRp 700.000
 
-Kursi ditahan 09:41 · Kebijakan refund
+Sisa waktu isi data 09:41 · Bayar QRIS sandbox maks. 7 menit · Refund sampai H-1
 
 **Halo, Admin**
 
@@ -314,3 +332,95 @@ DIJUAL[x]
 DRAF[ ]
 
 Di ponsel: kartu ringkasan pesanan menjadi panel bawah yang menempel (bottom sheet), sidebar admin menjadi tab bawah, dan bilah filter menjadi satu kolom.
+
+## 10. Status dan Label (Dokumen Final)
+
+Status order, pembayaran, refund, tiket, dan kehadiran dipisahkan, sehingga tiap domain punya label dan warna sendiri. Label ditulis dalam bahasa Indonesia, sedangkan kode status tetap untuk sistem.
+
+| Domain | Label di antarmuka |
+| --- | --- |
+| Order dan pembayaran (QRIS sandbox) | MENUNGGU PEMBAYARAN · 07:00TERBAYARKEDALUWARSADIBATALKANGAGALREFUND SEBAGIANDIREFUND |
+| Refund | MENUNGGU DATA REFUNDMENUNGGU PERSETUJUANPERLU KONFIRMASIDISETUJUI · MENUNGGU PROSESSEDANG DIPROSESSELESAIDITOLAK |
+| Tiket dan kehadiran | AKTIFTIDAK BERLAKUSCAN 2/3SUDAH MASUKBELUM MASUK |
+| Event | DRAFDIJUALDIBATALKAN |
+
+## 11. Komponen Admin dan Venue
+
+Lima lokasi dari blueprint ditampilkan sebagai pilihan venue. Denah dasar bersifat tetap; admin hanya memilih venue, template layout, dan tipe booking per section.
+
+### Pemilih venue
+
+**Downtown Walk**Outdoor · alfresco dining. Meja makan harian bukan inventori tiket; saat event dipakai Standing dan Kuota.
+
+**Atrium Cibadak**Lobby Ageung · indoor
+
+**Atrium Cileutik**Lobby Alus · indoor
+
+**Atrium Ciunik**Indoor · alternatif lokasi
+
+**Sawarga Courtyard**Open-air courtyard · template Opsi A atau B
+
+Kapasitas tiap venue tampil sebagai "menunggu validasi pengelola" sampai angka resmi tersedia. Satu event hanya memilih satu venue, dan jadwal yang bertabrakan ditolak.
+
+### Tiga lapisan konfigurasi dan tipe booking
+
+**1. Master venue**Tetap. Admin tidak menggambar ulang denah.
+
+**2. Template layout**Dipilih admin per event, misalnya Sawarga Opsi A atau B.
+
+**3. Snapshot**Dibekukan saat penjualan dibuka; transaksi merujuk ke sini.
+
+Tipe booking per section:
+
+Book by SeatBook by QuotaStanding
+
+Book by Table tidak termasuk baseline, jadi tidak ada komponen untuknya.
+
+### Antrean refund admin
+
+Semua 8Menunggu data 3Menunggu persetujuan 2Disetujui 1Diproses 1Selesai 1
+
+**Sari Anggraini** · 1 tiket · Rp 350.000\
+Event dibatalkan · belum mengisi data rekening
+
+MENUNGGU DATA REFUND
+
+**Budi Pratama** · 2 tiket · Rp 700.000\
+Pengajuan peserta · Transfer bank · BCA ••••4821
+
+MENUNGGU PERSETUJUAN
+
+**Dewi Rahma** · 1 tiket · Rp 350.000\
+E-wallet · GoPay ••••0912 · dana dikirim manual oleh admin
+
+DISETUJUI · MENUNGGU PROSES
+
+**Rizky Maulana** · 1 tiket · Rp 200.000\
+Nomor rekening perlu diperbaiki
+
+PERLU KONFIRMASI
+
+Dana dikembalikan manual oleh admin di luar sistem. Antarmuka hanya mengelola data, status, riwayat, dan pesan WhatsApp (templat atau manual). Target selesai maksimal 1 minggu setelah data lengkap.
+
+**Blokir kursi atau area**
+
+Admin dapat memblokir kursi atau section untuk kebutuhan operasional. Kursi yang sedang ditahan atau sudah terjual tidak dapat diblokir, dan kapasitas section dihitung ulang setelah blokir.
+
+## 12. Aturan Konten dari Dokumen Final
+
+**Tampilkan**
+
+- Memilih kursi belum mengunci kursi. "Kursi ditahan 10 menit" mulai saat isi data, lalu "Bayar dalam 7 menit" via QRIS sandbox.
+- Kuota sebagai terisi/kapasitas, misalnya 16/50.
+- Satu QR per order dengan penghitung scan (0/3, 1/3, 3/3).
+- Refund sampai H-1, tanpa biaya admin, selesai maksimal 1 minggu setelah data lengkap.
+- Nama peserta per tiket; dapat diubah sampai H-1.
+- Angka kapasitas dan kursi contoh dengan keterangan "contoh data".
+
+**Hindari**
+
+- Menampilkan kursi meja makan Downtown Walk sebagai kursi bernomor.
+- Menyebut refund "otomatis"; pengembalian dana dilakukan manual oleh admin.
+- QR terpisah per tiket.
+- Menetapkan standing selalu di depan atau kursi selalu di belakang.
+- Fitur Book by Table dan kapasitas yang tampak seperti angka resmi mall.

@@ -4,12 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:prototype": "node prototype/server.mjs",
     "build": "next build",
+    "build:prototype": "node --check prototype/server.mjs && node --check prototype/app.js && node --check prototype/lib/services.js",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
     "next": "16.4.5",
+    "qrcode-generator": "^2.0.4",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-qr-code": "^2.2.0",

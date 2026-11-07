@@ -1,0 +1,24 @@
+:root {
+  color-scheme: light;
+  --vermilion: #d93a2f;
+  --garnet: #8c1f2b;
+  --saffron: #f4a23b;
+  --blush: #fde9e4;
+  --cream: #fff8f5;
+  --plum: #2a1f2d;
+  --muted: #6e6270;
+  --line: #f0dcd6;
+  --teal: #1f8f7e;
+  --amber: #e9a12b;
+  --sold: #bdb3b8;
+  --error: #b3261e;
+  --white: #fff;
+  --shadow: 0 6px 24px rgba(140, 31, 43, .10);
+  --shadow-card: 0 10px 30px rgba(140, 31, 43, .07);
+  --signature-gradient: linear-gradient(135deg, #d93a2f 0%, #ee6a35 60%, #f4a23b 100%);
+  --radius-card: 16px;
+  --radius-ticket: 20px;
+  --ease-out: cubic-bezier(.2, .75, .25, 1);
+  --display: "Plus Jakarta Sans", system-ui, sans-serif;
+  --body: "DM Sans", system-ui, sans-serif;
+}

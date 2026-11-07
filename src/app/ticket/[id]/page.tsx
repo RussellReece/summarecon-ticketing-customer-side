@@ -1,12 +1,10 @@
-import { events } from "@/lib/data/events";
+// src/app/ticket/[id]/page.tsx
+// Dynamic route for e-ticket display.
+
 import TicketPageClient from "./TicketPageClient";
 
 interface TicketPageProps {
   params: Promise<{ id: string }>;
-}
-
-export function generateStaticParams() {
-  return events.map(({ id }) => ({ id }));
 }
 
 export default function TicketPage({ params }: TicketPageProps) {

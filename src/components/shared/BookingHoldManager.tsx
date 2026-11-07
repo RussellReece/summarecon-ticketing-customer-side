@@ -1,17 +1,18 @@
+// src/components/shared/BookingHoldManager.tsx
 "use client";
 
 import { useEffect } from "react";
 import { useBookingStore } from "@/lib/store/useBookingStore";
 
 export function BookingHoldManager() {
-  const selectedCount = useBookingStore((state) => state.selectedSeats.length);
+  const isLocked = useBookingStore((state) => state.isLocked);
   const tick = useBookingStore((state) => state.tick);
 
   useEffect(() => {
-    if (selectedCount === 0) return;
+    if (!isLocked) return;
     const timerId = window.setInterval(tick, 1000);
     return () => window.clearInterval(timerId);
-  }, [selectedCount, tick]);
+  }, [isLocked, tick]);
 
   return null;
 }

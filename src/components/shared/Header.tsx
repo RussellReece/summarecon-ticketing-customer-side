@@ -1,10 +1,34 @@
+// src/components/shared/Header.tsx
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { useAuthStore } from "@/lib/store/useAuthStore";
+import { fetchMe } from "@/services/customerApi";
+import type { CustomerProfile } from "@/types/customer";
 
 export function Header() {
   const user = useAuthStore((state) => state.user);
+  const setUser = useAuthStore((state) => state.setUser);
+
+  // Sync auth state with backend session on load
+  useEffect(() => {
+    if (!user) {
+      fetchMe()
+        .then((res) => {
+          const u = res.data as CustomerProfile & { name?: string };
+          if (u) {
+            setUser({
+              name: u.full_name || u.name || "Customer",
+              email: u.email || "",
+            });
+          }
+        })
+        .catch(() => {
+          // Not logged in
+        });
+    }
+  }, [user, setUser]);
 
   return (
     <header className="site-header">
@@ -19,14 +43,18 @@ export function Header() {
               <path d="M21 23c7 5 7 12 2 15-4-3-6-9-2-15Z" />
             </svg>
           </span>
-          <span className="brand-name">Summarecon<span className="brand-light">Tiket</span></span>
+          <span className="brand-name">
+            Summarecon<span className="brand-light">Tiket</span>
+          </span>
         </Link>
         <nav className="main-nav" aria-label="Navigasi utama">
           <Link href="/#events">Acara</Link>
           <Link href="/#how-it-works">Cara pesan</Link>
         </nav>
-        <Link className="header-tickets" href="/#events">Tiket saya</Link>
-        <Link className="header-login" href={user ? "/#events" : "/login"}>
+        <Link className="header-tickets" href="/account/orders">
+          Tiket saya
+        </Link>
+        <Link className="header-login" href={user ? "/account/profile" : "/login"}>
           {user ? `Hai, ${user.name.split(" ")[0]}` : "Masuk"}
         </Link>
       </div>

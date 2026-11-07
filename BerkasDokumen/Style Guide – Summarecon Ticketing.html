@@ -118,6 +118,62 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;opacity:.05;z-
 .rw{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:14px;padding:12px;font-size:14px}.rw b{font-family:'Plus Jakarta Sans'}.rw .sp{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
 .tgl{appearance:none;width:42px;height:24px;border-radius:99px;background:var(--sold);position:relative;cursor:pointer;margin:0}.tgl::after{content:"";position:absolute;left:3px;top:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.2s}.tgl:checked{background:var(--primary)}.tgl:checked::after{left:21px}
 .vd{font:700 11px 'Plus Jakarta Sans';letter-spacing:.1em;padding:4px 10px;border-radius:99px}.v1{background:color-mix(in srgb,var(--ok) 16%,var(--surface));color:var(--ok)}.v2{background:color-mix(in srgb,var(--hold) 18%,var(--surface));color:var(--hold)}.v3{background:var(--tint);color:var(--muted)}
+
+:root{--soldd:color-mix(in srgb,var(--ink) 58%,var(--bg));--blkc:color-mix(in srgb,var(--ink) 38%,var(--bg))}
+.s{position:relative}.zs .s{width:34px;height:34px}
+.s.hold{background:var(--hold)}.s.hold::after{content:"\22EF";position:absolute;inset:0;display:grid;place-items:center;color:var(--ink);font-weight:800;font-size:14px}
+.s.sold{background:var(--soldd)}.s.sold::after{content:"\2715";position:absolute;inset:0;display:grid;place-items:center;color:var(--bg);font-size:12px;font-weight:800}
+.s.blk{background:repeating-linear-gradient(45deg,var(--blkc) 0 3px,transparent 3px 7px);border:1.5px solid var(--blkc);cursor:not-allowed}
+.s.sel::after{content:"\2713";position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-size:14px;font-weight:800}
+.k-ok{background:var(--ok)}.k-hold{background:var(--hold)}.k-sold{background:var(--soldd)}.k-sel{background:var(--primary)}
+.k-blk{background:repeating-linear-gradient(45deg,var(--blkc) 0 3px,transparent 3px 6px);border:1.5px solid var(--blkc)}
+#zones{display:flex;flex-direction:column;gap:12px;text-align:left}
+#zones .seatz{order:1}#zones .quotaz{order:2}#zones .standz{order:3}
+#zones[data-layout="b"] .standz{order:1}#zones[data-layout="b"] .seatz{order:2}#zones[data-layout="b"] .quotaz{order:3}
+.zn{border:1.5px solid var(--line);border-radius:16px;padding:14px;background:var(--bg)}.zn .bar{margin:8px 0 12px}
+.tp{display:inline-block;font:700 10px 'Plus Jakarta Sans';letter-spacing:.14em;padding:4px 10px;border-radius:99px;margin-bottom:8px}
+.tp.sx{background:color-mix(in srgb,var(--ok) 16%,var(--surface));color:var(--ok)}.tp.qx{background:var(--tint);color:var(--primary-d)}.tp.dx{background:color-mix(in srgb,var(--accent) 24%,var(--surface));color:var(--ink)}
+.bl2{display:flex;gap:22px;flex-wrap:wrap;justify-content:center}.r6{display:flex;gap:8px;margin-bottom:8px;justify-content:center}
+.ct{display:flex;justify-content:space-between;align-items:baseline;gap:10px}.ct b{font:800 28px 'Plus Jakarta Sans'}
+.stp{display:flex;align-items:center;gap:12px}.stp button{width:44px;height:44px;border-radius:50%;border:1.5px solid var(--primary);background:var(--surface);color:var(--primary);font:700 20px 'Plus Jakarta Sans';cursor:pointer}.stp b{min-width:24px;text-align:center;font-family:'Plus Jakarta Sans'}
+.bkc{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-top:14px;background:var(--tint);border-radius:14px;padding:12px 14px;text-align:left}
+.att{display:flex;justify-content:space-between;align-items:center;font-size:14px;padding:7px 0;border-bottom:1px dashed var(--line)}
+.v4{background:color-mix(in srgb,var(--bad) 14%,var(--surface));color:var(--bad)}.v5{background:var(--tint);color:var(--primary-d)}.v6{background:color-mix(in srgb,var(--ink) 12%,var(--surface));color:var(--ink)}
+.map .vd{display:inline-block;margin:3px 4px 3px 0;white-space:nowrap}
+.seg{display:inline-flex;background:var(--tint);border-radius:99px;padding:4px;flex-wrap:wrap}.seg span{padding:8px 14px;border-radius:99px;font:600 13px 'Plus Jakarta Sans';color:var(--muted)}.seg span.on{background:var(--primary);color:#fff}
+.vn{border:1.5px solid var(--line);border-radius:16px;padding:14px;background:var(--surface)}.vn.on{border-color:var(--primary);box-shadow:0 0 0 3px var(--tint)}.vn b{font-family:'Plus Jakarta Sans'}.vn small{display:block;color:var(--muted);font-size:12px;margin-top:4px}
+.flow{display:flex;gap:10px;flex-wrap:wrap}.flow>div{flex:1 1 180px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;font-size:13px}.flow b{display:block;font-family:'Plus Jakarta Sans';font-size:14px}
+.rq{display:grid;grid-template-columns:1fr auto;gap:10px;border:1px solid var(--line);border-radius:14px;padding:12px;background:var(--surface);font-size:14px;align-items:center}@media(max-width:640px){.rq{grid-template-columns:1fr}}
+.btn.sm{padding:8px 16px;min-height:40px;font-size:13px}
+
+.vmap{--sz:30px;display:flex;flex-direction:column;gap:12px;text-align:left;background:color-mix(in srgb,var(--ink) 4%,var(--surface));border:1.5px solid var(--line);border-radius:22px;padding:16px;overflow-x:auto}
+.vmap.poly{clip-path:polygon(7% 3%,90% 0,97% 9%,95% 93%,82% 100%,9% 100%,2% 95%,0 28%);border:0;padding:28px 24px;background:color-mix(in srgb,var(--ok) 10%,var(--surface))}
+.vmap.lk{pointer-events:none;opacity:.88}
+@media(max-width:560px){.vmap{--sz:20px}.vmap .r6{gap:4px;margin-bottom:4px}}
+.vmap .s{width:var(--sz);height:var(--sz);font:700 9px 'DM Sans';color:#fff;border-radius:7px 7px 4px 4px}
+.vmap .s.sold,.vmap .s.hold,.vmap .s.blk,.vmap .s.sel{font-size:0}
+.vrow{display:flex;gap:10px;flex-wrap:wrap}.vrow>*{flex:1 1 140px}
+.stg{background:color-mix(in srgb,#2E6BAA 12%,var(--surface));border:1.5px solid color-mix(in srgb,#2E6BAA 55%,var(--bg));border-radius:12px;padding:10px;text-align:center;font:700 12px 'Plus Jakarta Sans'}
+.stg small,.fc small,.tn small,.alt small{display:block;font:500 10px 'DM Sans';color:var(--muted);margin-top:2px}
+.stg.bk{background:var(--tint);border-color:var(--line)}
+.ln2{background:color-mix(in srgb,var(--accent) 24%,var(--surface));border:1px dashed var(--accent);border-radius:8px;padding:6px;text-align:center;font:700 10px 'Plus Jakarta Sans';letter-spacing:.06em}
+.fc{border:1.5px solid color-mix(in srgb,var(--ok) 50%,var(--bg));background:color-mix(in srgb,var(--ok) 8%,var(--surface));border-radius:12px;padding:8px;text-align:center;font:700 11px 'Plus Jakarta Sans'}
+.tn{border:1.5px dashed var(--blkc);background:repeating-linear-gradient(45deg,transparent 0 6px,color-mix(in srgb,var(--ink) 5%,transparent) 6px 12px);border-radius:12px;padding:10px;text-align:center;font:700 11px 'Plus Jakarta Sans';color:var(--muted)}
+.vlab{text-align:center;font:700 11px 'Plus Jakarta Sans';letter-spacing:.1em;color:var(--ok)}
+.atr{display:flex;gap:10px;justify-content:center;align-items:stretch}
+.atr .sd,.atr .mn{writing-mode:vertical-rl;border-radius:8px;background:color-mix(in srgb,var(--accent) 24%,var(--surface));border:1px dashed var(--accent);font:700 10px 'Plus Jakarta Sans';letter-spacing:.2em;padding:6px 3px;display:flex;align-items:center;justify-content:center}
+.atr .mn{padding:6px 8px}
+.bh{text-align:center;font:700 10px 'Plus Jakarta Sans';letter-spacing:.14em;color:var(--muted);margin-bottom:6px}
+.rlab{width:14px;font:700 10px 'Plus Jakarta Sans';color:var(--muted);align-self:center}
+.alt{border:1.5px dashed;border-radius:12px;padding:8px;text-align:center;font:700 11px 'Plus Jakarta Sans'}.alt.q{border-color:var(--primary-d);color:var(--primary-d)}.alt.d{border-color:var(--accent);color:var(--ink)}
+.tbls{display:flex;flex-wrap:wrap;gap:20px;justify-content:center;padding:10px}.tbl{width:24px;height:24px;border-radius:50%;border:2px solid var(--accent);background:var(--surface);position:relative}.tbl::before{content:"";position:absolute;inset:-6px;border-radius:50%;border:2px dotted var(--accent)}
+.vnote{background:var(--tint);border-radius:12px;padding:10px 12px;font-size:13px;margin-bottom:12px;text-align:left}
+.fsteps{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:16px 0 10px}.fsteps span{font:600 12px 'Plus Jakarta Sans';padding:6px 12px;border-radius:99px;background:var(--tint);color:var(--muted)}.fsteps span.on{background:var(--primary);color:#fff}.fsteps span.dn{background:color-mix(in srgb,var(--ok) 16%,var(--surface));color:var(--ok)}
+.tm{display:flex;justify-content:space-between;align-items:center;gap:10px;background:color-mix(in srgb,var(--hold) 18%,var(--surface));border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:14px;text-align:left}.tm b{font:800 22px 'Plus Jakarta Sans'}
+.fg{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:12px;text-align:left}.fg label{font-size:12px;color:var(--muted)}.fg input{display:block;width:100%;margin-top:4px;padding:11px 12px;border:1.5px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:500 14px 'DM Sans'}
+.qp{display:flex;gap:16px;align-items:center;justify-content:center;flex-wrap:wrap;margin-bottom:12px;text-align:left}.qrb.lg{width:150px;height:150px}
+.sbx{display:inline-block;font:700 10px 'Plus Jakarta Sans';letter-spacing:.14em;padding:4px 10px;border-radius:99px;background:var(--ink);color:var(--bg)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
 </style>
 </head>
 <body>
@@ -132,7 +188,7 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;opacity:.05;z-
 <header class="hero"><svg class="hf" viewBox="-130 -135 260 145" aria-hidden="true"><use href="#fl" fill="none" stroke="currentColor" stroke-width="2"/><use href="#ff" fill="currentColor" opacity=".35"/></svg><div class="in">
   <small>Style Guide · Bandung Build Challenge 2026</small>
   <h1>Summarecon<br>Ticketing</h1>
-  <p>Bahasa visual untuk sistem tiket event di Summarecon Mall Bandung: hangat, jelas, dan meyakinkan saat memilih kursi.</p>
+  <p>Bahasa visual untuk sistem tiket event di Summarecon Mall Bandung: hangat, jelas, dan meyakinkan saat memilih kursi.<br><small style="opacity:.9">Versi revisi: mengikuti Dokumen Analisis Final dan Blueprint Venue (6 November 2026).</small></p>
 </div></header>
 
 <main class="wrap">
@@ -162,14 +218,17 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;opacity:.05;z-
   <h3 style="margin:28px 0 12px;font-size:18px">Gradasi tanda tangan</h3>
   <div style="height:72px;border-radius:var(--r);background:var(--grad)"></div>
   <p class="lead" style="margin-top:8px"><code>135°: #D93A2F → #EE6A35 → #F4A23B</code> · Dipakai untuk hero, header tiket, dan panggung seat map. Jangan dipakai untuk teks kecil.</p>
-  <h3 style="margin:28px 0 12px;font-size:18px">Warna status</h3>
+  <h3 style="margin:28px 0 12px;font-size:18px">Status kursi dan kuota</h3>
   <div class="grid">
-    <div class="sw"><div class="c" style="background:#1F8F7E;color:#fff">Aa</div><div class="t"><b>Tersedia / Valid</b><code>#1F8F7E</code></div></div>
-    <div class="sw"><div class="c" style="background:#E9A12B;color:#2A1F2D">Aa</div><div class="t"><b>Dipesan / Sudah dipakai</b><code>#E9A12B</code></div></div>
-    <div class="sw"><div class="c" style="background:#BDB3B8;color:#2A1F2D">Aa</div><div class="t"><b>Terjual</b><code>#BDB3B8</code></div></div>
-    <div class="sw"><div class="c" style="background:#B3261E;color:#fff">Aa</div><div class="t"><b>Tidak valid / Error</b><code>#B3261E</code></div></div>
+    <div class="sw"><div class="c" style="background:#1F8F7E;color:#fff">Aa</div><div class="t"><b>Tersedia</b><code>#1F8F7E</code><br>AVAILABLE · dapat dipilih</div></div>
+    <div class="sw"><div class="c" style="background:#E9A12B;color:#2A1F2D">⋯</div><div class="t"><b>Ditahan</b><code>#E9A12B</code><br>LOCKED · 10 menit sejak isi data</div></div>
+    <div class="sw"><div class="c" style="background:#6B5A6E;color:#fff">✕</div><div class="t"><b>Terjual</b><code>#6B5A6E</code><br>SOLD · plum gelap + ✕</div></div>
+    <div class="sw"><div class="c" style="background:repeating-linear-gradient(45deg,#9C909F 0 3px,transparent 3px 7px);border-bottom:1.5px solid #9C909F"></div><div class="t"><b>Diblokir</b><code>arsiran abu</code><br>BLOCKED · oleh panitia</div></div>
+    <div class="sw"><div class="c" style="background:#D93A2F;color:#fff">✓</div><div class="t"><b>Dipilih</b><code>#D93A2F</code><br>Pilihan pengguna</div></div>
+    <div class="sw"><div class="c" style="background:#B3261E;color:#fff">!</div><div class="t"><b>Error / Gagal</b><code>#B3261E</code><br>Hanya untuk kegagalan</div></div>
   </div>
-  <p class="lead" style="margin-top:10px">Kursi tersedia memakai teal (bukan hijau umum) agar kontras dengan Vermilion saat kursi dipilih. Pilihan pengguna selalu merah, status sistem tidak pernah merah.</p>
+  <p class="lead" style="margin-top:12px">Empat status inventori mengikuti dokumen final (tersedia, ditahan, terjual, diblokir). Terjual tidak lagi memakai abu terang dan merah dipertahankan untuk pilihan pengguna, sehingga tidak ada dua status yang tampak sama. Setiap status juga punya simbol (✕, ⋯, arsiran, ✓) agar terbaca tanpa warna.</p>
+  <p class="lead">Area <b>Book by Quota</b> dan <b>Standing</b> tidak punya status per kursi. Tampilkan angka terisi/kapasitas, misalnya <b>16/50</b>, dengan batang progres: di bawah 80% teal, 80–99% amber, 100% plum gelap dan tombol nonaktif.</p>
 </section>
 
 <section>
@@ -179,7 +238,7 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;opacity:.05;z-
     <div><span>Display · Plus Jakarta Sans ExtraBold 800 · 40/44</span><h1 style="font-size:40px;font-weight:800">Pilih kursimu</h1></div>
     <div><span>Heading 1 · Plus Jakarta Sans Bold 700 · 28/34</span><h2 style="font-size:28px">Konser Akustik Bandung</h2></div>
     <div><span>Heading 2 · Plus Jakarta Sans SemiBold 600 · 20/28</span><h3 style="font-size:20px;font-weight:600">Kategori tiket</h3></div>
-    <div><span>Body · DM Sans Regular 400 · 16/24</span>Pilih kursi pada denah. Kursi yang kamu pilih ditahan selama 10 menit.</div>
+    <div><span>Body · DM Sans Regular 400 · 16/24</span>Pilih kursi pada denah. Kursi ditahan 10 menit setelah kamu masuk ke langkah isi data.</div>
     <div><span>Caption · DM Sans Medium 500 · 13/18</span><span style="font-size:13px;font-weight:500">Harga sudah termasuk pajak</span></div>
     <div><span>Overline · Plus Jakarta Sans SemiBold · 12 · tracking 0.3em · KAPITAL (meniru tagline BANDUNG)</span><b class="disp" style="font-size:12px;letter-spacing:.3em">SUMMARECON MALL · BANDUNG</b></div>
   </div>
@@ -212,37 +271,40 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;opacity:.05;z-
     <span class="badge" style="color:var(--primary)"><i class="dot"></i>Refund diproses</span>
   </div>
 
-  <h3 style="margin:28px 0 12px;font-size:18px">Denah kursi (interaktif)</h3>
+  <h3 style="margin:28px 0 12px;font-size:18px">Denah per venue (sesuai blueprint)</h3>
+  <p class="lead">Tiga venue dari blueprint: V1 Downtown Walk, V2 Atrium (Cibadak, Cileutik, atau Ciunik), dan V3 Sawarga Courtyard. Setiap denah mengikuti susunan di blueprint: panggung dan backstage di atas, section di tengah, lalu jalur sirkulasi dan fasilitas di bawah. Ganti venue, pilih kursi atau kuota, lalu jalankan alur pemesanan sampai e-ticket.</p>
   <div class="seatbox">
-    <div class="stage">PANGGUNG</div>
-    <div id="seats"></div>
-    <div class="legend">
-      <span><i style="background:var(--ok)"></i>Tersedia</span>
-      <span><i style="background:var(--hold)"></i>Sedang dipesan</span>
-      <span><i style="background:var(--sold)"></i>Terjual</span>
-      <span><i style="background:var(--primary)"></i>Pilihanmu</span>
+    <div class="chips" id="vtabs" style="justify-content:center;margin:0 0 8px"></div>
+    <div class="chips" id="vsub" style="justify-content:center;margin:0 0 12px"></div>
+    <div class="vnote" id="vmeta"></div>
+    <div id="vmap" class="vmap"></div>
+    <div class="legend" style="margin-top:16px">
+      <span><i class="k-ok"></i>Tersedia</span><span><i class="k-hold"></i>Ditahan</span><span><i class="k-sold"></i>Terjual</span><span><i class="k-blk"></i>Diblokir</span><span><i class="k-sel"></i>Pilihanmu</span>
     </div>
-    <p id="sum" style="margin:14px 0 0;font-weight:600" class="disp">Belum ada kursi dipilih</p>
+    <div id="fpanel" style="margin-top:6px"></div>
   </div>
-  <p class="lead" style="margin-top:10px">Aksesibilitas: selain warna, kursi terjual dan dipesan diberi ikon kecil atau pola pada versi final, dan label baris-nomor tampil saat disentuh.</p>
+  <p class="lead" style="margin-top:10px">Alur waktu: memilih kursi belum mengunci apa pun. Kursi ditahan 10 menit saat pengguna masuk ke langkah isi data, lalu pembayaran QRIS sandbox diberi waktu maksimal 7 menit. Angka kursi dan kuota hanya contoh data prototype, bukan kapasitas resmi.</p>
 
   <div class="dd" style="margin-top:28px">
     <div>
-      <h3 style="margin:0 0 12px;font-size:18px">E-ticket</h3>
+      <h3 style="margin:0 0 12px;font-size:18px">E-ticket (satu QR per order)</h3>
       <div class="ticket">
-        <div class="top"><small style="letter-spacing:.25em;font-size:11px">E-TICKET</small><h3 style="font-size:22px;margin-top:4px">Konser Akustik Bandung</h3><div style="font-size:13px;opacity:.95">Sab, 14 Nov 2026 · 19.00 · Summarecon Mall Bandung</div></div>
-        <div class="mid"><div><span style="font-size:12px;color:var(--muted)">Kursi</span><br><b class="disp">B-07</b></div><div><span style="font-size:12px;color:var(--muted)">Kategori</span><br><b class="disp">Gold</b></div><div><span style="font-size:12px;color:var(--muted)">Peserta</span><br><b class="disp">Sari A.</b></div></div>
-        <div class="qr"><div class="qrb"></div></div>
+        <div class="top"><small style="letter-spacing:.25em;font-size:11px">E-TICKET · ORD-2026-001</small><h3 style="font-size:22px;margin-top:4px">Konser Akustik Bandung</h3><div style="font-size:13px;opacity:.95">Sab, 14 Nov 2026 · 19.00 · Sawarga Courtyard</div></div>
+        <div style="padding:10px 18px"><div class="att"><span>Sari A. · A07</span><span class="vd v1">SUDAH MASUK</span></div><div class="att"><span>Budi P. · A08</span><span class="vd v3">BELUM MASUK</span></div><div class="att"><span>Dewi R. · A09</span><span class="vd v3">BELUM MASUK</span></div></div>
+        <div class="qr" style="border-top:2px dashed var(--line);flex-direction:column;align-items:center;gap:10px"><div class="qrb"></div><b class="disp">Scan 1/3</b><div class="bar" style="width:140px;margin:0"><i style="width:33%"></i></div></div>
+        <div style="padding:0 18px 16px;font-size:12px;color:var(--muted);text-align:center">Satu QR untuk seluruh tiket dalam order. Dikirim juga lewat WhatsApp.</div>
       </div>
     </div>
     <div>
       <h3 style="margin:0 0 12px;font-size:18px">Hasil check-in panitia</h3>
       <div style="display:grid;gap:10px">
-        <div class="res valid">✓ Valid · B-07 · Sari A.</div>
-        <div class="res used">! Sudah digunakan · 18.42</div>
-        <div class="res invalid">✕ Tidak valid · bukan tiket event ini</div>
+        <div class="res valid">✓ Valid · Scan 1/3 · ORD-2026-001</div>
+        <div class="res valid">✓ Valid · Scan 3/3 · QR kini habis</div>
+        <div class="res used">! Batas scan tercapai · 3/3</div>
+        <div class="res invalid">✕ Bukan tiket untuk event ini</div>
+        <div class="res invalid">✕ Tiket tidak berlaku · refund atau event dibatalkan</div>
       </div>
-      <p class="lead" style="margin-top:12px;font-size:14px">Hasil scan memakai warna, ikon, dan teks sekaligus, serta tampil layar penuh agar terbaca di keramaian.</p>
+      <p class="lead" style="margin-top:12px;font-size:14px">Batas scan mengikuti jumlah tiket valid. Order 3 tiket dengan 1 refund hanya dapat dipakai 2 orang, dan layar menampilkan sisa yang valid.</p>
     </div>
   </div>
 </section>
@@ -288,7 +350,7 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;opacity:.05;z-
   <div class="bento">
     <div class="w card mq"><div><span>Konser</span><i>✿</i><span>Seminar</span><i>✿</i><span>Pameran</span><i>✿</i><span>Workshop</span><i>✿</i><span>Festival</span><i>✿</i><span>Konser</span><i>✿</i><span>Seminar</span><i>✿</i><span>Pameran</span><i>✿</i><span>Workshop</span><i>✿</i><span>Festival</span><i>✿</i></div></div>
     <div class="card spot"><span style="color:var(--muted);font-size:13px">Tiket terjual</span><div class="big"><span class="num" data-to="1250">0</span></div><div class="bar"><i></i></div><span style="font-size:13px;color:var(--muted)">72% dari kuota</span></div>
-    <div class="card spot"><span style="color:var(--muted);font-size:13px">Kursi ditahan untuk kamu</span><div class="big" id="cd">10:00</div><span style="font-size:13px;color:var(--muted)">Selesaikan pembayaran sebelum waktu habis</span></div>
+    <div class="card spot"><span style="color:var(--muted);font-size:13px">Sisa waktu isi data</span><div class="big" id="cd">10:00</div><span style="font-size:13px;color:var(--muted)">Kursi ditahan 10 menit sejak langkah isi data; bayar maks. 7 menit</span></div>
     <div class="card spot" style="display:flex;flex-direction:column;gap:12px;align-items:flex-start"><b class="disp">Tombol Shimmer</b><button class="btn shim">Beli Tiket →</button><span style="font-size:13px;color:var(--muted)">Kilau hanya pada CTA utama.</span></div>
     <div class="card spot"><b class="disp">Kartu Spotlight</b><p style="margin:8px 0 0;color:var(--muted);font-size:14px">Gerakkan kursor atau jari di kartu ini: cahaya Vermilion mengikuti. Cocok untuk kartu kategori tiket (Gold, Silver, Reguler).</p></div>
   </div>
@@ -336,7 +398,7 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;opacity:.05;z-
   <h3 style="margin:26px 0 12px;font-size:18px">Kartu event, ringkasan pesanan, dan dashboard</h3>
   <div class="dd">
     <div class="ev"><div class="im"><span class="pr">Mulai Rp 150.000</span><span class="hs">♡</span><svg viewBox="-100 -135 200 150"><use href="#fl" fill="none" stroke="#fff" stroke-width="3"/></svg></div><div class="bd"><div class="dbx"><small>NOV</small><b>14</b></div><div><h4>Konser Akustik Bandung</h4><p>SUMMARECON MALL BANDUNG · 19.00</p></div></div></div>
-    <div class="bk"><b class="disp">Ringkasan Pesanan</b><div class="ln"><span>Gold · B-07</span><span>Rp 350.000</span></div><div class="ln"><span>Gold · B-08</span><span>Rp 350.000</span></div><div class="tot"><span>Total</span><span>Rp 700.000</span></div><button class="btn b1">Lanjut ke Pembayaran</button><small>Kursi ditahan 09:41 · Kebijakan refund</small></div>
+    <div class="bk"><b class="disp">Ringkasan Pesanan</b><div class="ln"><span>Gold · B-07</span><span>Rp 350.000</span></div><div class="ln"><span>Gold · B-08</span><span>Rp 350.000</span></div><div class="tot"><span>Total</span><span>Rp 700.000</span></div><button class="btn b1">Lanjut ke Pembayaran</button><small>Sisa waktu isi data 09:41 · Bayar QRIS sandbox maks. 7 menit · Refund sampai H-1</small></div>
   </div>
   <div class="adm" style="margin-top:14px">
     <div class="gr"><div><b class="disp" style="font-size:20px">Halo, Admin</b><div style="font-size:14px;color:var(--muted)">3 event aktif, 128 tiket terjual hari ini.</div></div><svg viewBox="-100 -135 200 150"><use href="#fl" fill="none" stroke="currentColor" stroke-width="3"/></svg></div>
@@ -346,25 +408,73 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;opacity:.05;z-
   </div>
   <p class="lead" style="margin-top:12px">Di ponsel: kartu ringkasan pesanan menjadi panel bawah yang menempel (bottom sheet), sidebar admin menjadi tab bawah, dan bilah filter menjadi satu kolom.</p>
 </section>
+<section class="rv">
+  <h2>10. Status dan Label (Dokumen Final)</h2>
+  <p class="lead">Status order, pembayaran, refund, tiket, dan kehadiran dipisahkan, sehingga tiap domain punya label dan warna sendiri. Label ditulis dalam bahasa Indonesia, sedangkan kode status tetap untuk sistem.</p>
+  <div class="card" style="overflow-x:auto"><table class="map">
+    <tr><th>Domain</th><th>Label di antarmuka</th></tr>
+    <tr><td>Order dan pembayaran (QRIS sandbox)</td><td><span class="vd v2">MENUNGGU PEMBAYARAN · 07:00</span><span class="vd v1">TERBAYAR</span><span class="vd v3">KEDALUWARSA</span><span class="vd v3">DIBATALKAN</span><span class="vd v4">GAGAL</span><span class="vd v5">REFUND SEBAGIAN</span><span class="vd v5">DIREFUND</span></td></tr>
+    <tr><td>Refund</td><td><span class="vd v2">MENUNGGU DATA REFUND</span><span class="vd v2">MENUNGGU PERSETUJUAN</span><span class="vd v5">PERLU KONFIRMASI</span><span class="vd v6">DISETUJUI · MENUNGGU PROSES</span><span class="vd v2">SEDANG DIPROSES</span><span class="vd v1">SELESAI</span><span class="vd v3">DITOLAK</span></td></tr>
+    <tr><td>Tiket dan kehadiran</td><td><span class="vd v1">AKTIF</span><span class="vd v3">TIDAK BERLAKU</span><span class="vd v6">SCAN 2/3</span><span class="vd v1">SUDAH MASUK</span><span class="vd v3">BELUM MASUK</span></td></tr>
+    <tr><td>Event</td><td><span class="vd v3">DRAF</span><span class="vd v1">DIJUAL</span><span class="vd v4">DIBATALKAN</span></td></tr>
+  </table></div>
+</section>
+
+<section class="rv">
+  <h2>11. Komponen Admin dan Venue</h2>
+  <p class="lead">Lima lokasi dari blueprint ditampilkan sebagai pilihan venue. Denah dasar bersifat tetap; admin hanya memilih venue, template layout, dan tipe booking per section.</p>
+  <h3 style="margin:18px 0 12px;font-size:18px">Pemilih venue</h3>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
+    <div class="vn"><b>Downtown Walk</b><small>Outdoor · alfresco dining. Meja makan harian bukan inventori tiket; saat event dipakai Standing dan Kuota.</small></div>
+    <div class="vn"><b>Atrium Cibadak</b><small>Lobby Ageung · indoor</small></div>
+    <div class="vn"><b>Atrium Cileutik</b><small>Lobby Alus · indoor</small></div>
+    <div class="vn"><b>Atrium Ciunik</b><small>Indoor · alternatif lokasi</small></div>
+    <div class="vn on"><b>Sawarga Courtyard</b><small>Open-air courtyard · template Opsi A atau B</small></div>
+  </div>
+  <p class="lead" style="margin-top:10px;font-size:14px">Kapasitas tiap venue tampil sebagai "menunggu validasi pengelola" sampai angka resmi tersedia. Satu event hanya memilih satu venue, dan jadwal yang bertabrakan ditolak.</p>
+
+  <h3 style="margin:26px 0 12px;font-size:18px">Tiga lapisan konfigurasi dan tipe booking</h3>
+  <div class="flow"><div><b>1. Master venue</b>Tetap. Admin tidak menggambar ulang denah.</div><div><b>2. Template layout</b>Dipilih admin per event, misalnya Sawarga Opsi A atau B.</div><div><b>3. Snapshot</b>Dibekukan saat penjualan dibuka; transaksi merujuk ke sini.</div></div>
+  <p style="margin:14px 0 6px;font-size:13px;color:var(--muted)">Tipe booking per section:</p>
+  <div class="seg"><span class="on">Book by Seat</span><span>Book by Quota</span><span>Standing</span></div>
+  <p class="lead" style="margin-top:8px;font-size:14px">Book by Table tidak termasuk baseline, jadi tidak ada komponen untuknya.</p>
+
+  <h3 style="margin:26px 0 12px;font-size:18px">Antrean refund admin</h3>
+  <div class="chips" style="margin:0 0 14px"><span class="chip on">Semua 8</span><span class="chip">Menunggu data 3</span><span class="chip">Menunggu persetujuan 2</span><span class="chip">Disetujui 1</span><span class="chip">Diproses 1</span><span class="chip">Selesai 1</span></div>
+  <div style="display:grid;gap:10px">
+    <div class="rq"><div><b class="disp">Sari Anggraini</b> · 1 tiket · Rp 350.000<br><span style="color:var(--muted);font-size:12px">Event dibatalkan · belum mengisi data rekening</span></div><div class="row"><span class="vd v2">MENUNGGU DATA REFUND</span><button class="btn b3 sm">Kirim WhatsApp</button></div></div>
+    <div class="rq"><div><b class="disp">Budi Pratama</b> · 2 tiket · Rp 700.000<br><span style="color:var(--muted);font-size:12px">Pengajuan peserta · Transfer bank · BCA ••••4821</span></div><div class="row"><span class="vd v2">MENUNGGU PERSETUJUAN</span><button class="btn b1 sm">Setujui</button><button class="btn b2 sm">Tolak</button></div></div>
+    <div class="rq"><div><b class="disp">Dewi Rahma</b> · 1 tiket · Rp 350.000<br><span style="color:var(--muted);font-size:12px">E-wallet · GoPay ••••0912 · dana dikirim manual oleh admin</span></div><div class="row"><span class="vd v6">DISETUJUI · MENUNGGU PROSES</span><button class="btn b1 sm">Tandai Selesai</button></div></div>
+    <div class="rq"><div><b class="disp">Rizky Maulana</b> · 1 tiket · Rp 200.000<br><span style="color:var(--muted);font-size:12px">Nomor rekening perlu diperbaiki</span></div><div class="row"><span class="vd v5">PERLU KONFIRMASI</span><button class="btn b3 sm">Minta Perbaikan via WA</button></div></div>
+  </div>
+  <p class="lead" style="margin-top:10px;font-size:14px">Dana dikembalikan manual oleh admin di luar sistem. Antarmuka hanya mengelola data, status, riwayat, dan pesan WhatsApp (templat atau manual). Target selesai maksimal 1 minggu setelah data lengkap.</p>
+  <div class="card" style="margin-top:14px"><b class="disp">Blokir kursi atau area</b><p style="margin:6px 0 0;color:var(--muted);font-size:14px">Admin dapat memblokir kursi atau section untuk kebutuhan operasional. Kursi yang sedang ditahan atau sudah terjual tidak dapat diblokir, dan kapasitas section dihitung ulang setelah blokir.</p></div>
+</section>
+
+<section class="rv">
+  <h2>12. Aturan Konten dari Dokumen Final</h2>
+  <div class="dd">
+    <div class="card yes"><b class="disp">Tampilkan</b><ul>
+      <li>Memilih kursi belum mengunci kursi. "Kursi ditahan 10 menit" mulai saat isi data, lalu "Bayar dalam 7 menit" via QRIS sandbox.</li>
+      <li>Kuota sebagai terisi/kapasitas, misalnya 16/50.</li>
+      <li>Satu QR per order dengan penghitung scan (0/3, 1/3, 3/3).</li>
+      <li>Refund sampai H-1, tanpa biaya admin, selesai maksimal 1 minggu setelah data lengkap.</li>
+      <li>Nama peserta per tiket; dapat diubah sampai H-1.</li>
+      <li>Angka kapasitas dan kursi contoh dengan keterangan "contoh data".</li>
+    </ul></div>
+    <div class="card no"><b class="disp">Hindari</b><ul>
+      <li>Menampilkan kursi meja makan Downtown Walk sebagai kursi bernomor.</li>
+      <li>Menyebut refund "otomatis"; pengembalian dana dilakukan manual oleh admin.</li>
+      <li>QR terpisah per tiket.</li>
+      <li>Menetapkan standing selalu di depan atau kursi selalu di belakang.</li>
+      <li>Fitur Book by Table dan kapasitas yang tampak seperti angka resmi mall.</li>
+    </ul></div>
+  </div>
+</section>
 </main>
 <script>
 (function(){
-  var g=document.getElementById('seats'),sum=document.getElementById('sum'),sel={};
-  var rows='ABCDEF',cols=10;
-  g.style.gridTemplateColumns='repeat('+cols+',28px)';
-  var sold=['A2','A3','B5','C1','C8','D4','D5','E9','F2','F10'],hold=['B7','B8','D1','E3'];
-  for(var r=0;r<rows.length;r++)for(var c=1;c<=cols;c++){
-    var id=rows[r]+c,b=document.createElement('button');
-    b.className='s';b.setAttribute('aria-label','Kursi '+id);b.title=id;
-    if(sold.indexOf(id)>-1){b.className+=' sold';b.disabled=true}
-    else if(hold.indexOf(id)>-1){b.className+=' hold';b.disabled=true}
-    else b.onclick=(function(b,id){return function(){
-      if(sel[id]){delete sel[id];b.classList.remove('sel')}else{sel[id]=1;b.classList.add('sel')}
-      var k=Object.keys(sel);
-      sum.textContent=k.length?k.length+' kursi: '+k.join(', ')+' · Rp '+(k.length*350).toLocaleString('id-ID')+'.000':'Belum ada kursi dipilih';
-    }})(b,id);
-    g.appendChild(b);
-  }
+  
   var t=document.getElementById('tg'),dark=matchMedia('(prefers-color-scheme: dark)').matches;
   t.onclick=function(){dark=!dark;document.documentElement.setAttribute('data-theme',dark?'dark':'light')};
   // denah melengkung
@@ -381,6 +491,71 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;opacity:.05;z-
   document.querySelectorAll('.rv').forEach(function(el){io.observe(el)});
   document.querySelectorAll('.spot').forEach(function(el){el.addEventListener('pointermove',function(e){var b=el.getBoundingClientRect();el.style.setProperty('--x',(e.clientX-b.left)+'px');el.style.setProperty('--y',(e.clientY-b.top)+'px')})});
   var cd=document.getElementById('cd'),sec=600;setInterval(function(){sec=sec>0?sec-1:600;cd.textContent=('0'+Math.floor(sec/60)).slice(-2)+':'+('0'+sec%60).slice(-2)},1000);
+})();
+</script>
+<script>
+(function(){
+var root=document.getElementById('vmap');if(!root)return;
+var V={v1:{n:'V1 · Downtown Walk',m:'Outdoor · alfresco dining. Meja makan harian bukan inventori tiket; saat event dipakai Standing dan Book by Quota.',s:{ev:'Event bertiket',day:'Operasional harian'}},
+ v2:{n:'V2 · Atrium',m:'Indoor · satu atrium dipilih per event. Contoh 8 baris × 10 kursi = 80 ID untuk uji prototype, bukan kapasitas resmi.',s:{cb:'Cibadak · Lobby Ageung',cl:'Cileutik · Lobby Alus',cu:'Ciunik'}},
+ v3:{n:'V3 · Sawarga Courtyard',m:'Open-air courtyard · dua template alternatif, bukan denah permanen.',s:{a:'Opsi A · Kursi di depan',b:'Opsi B · Standing di depan'}}};
+var PRE={cb:'CB',cl:'CL',cu:'CU'},cur={v:'v2',s:'cb'},step=1,sel={},qty={},ZC={},DB={},secs=0,note='',res='',rn=0;
+function nn(n){return ('0'+n).slice(-2)}
+function so(id,n){return {id:id,n:nn(n)}}
+function fmt(t){return 'Rp '+(t*1000).toLocaleString('id-ID')}
+function mmss(s){return nn(Math.floor(s/60))+':'+nn(s%60)}
+function nt(){return cur.v=='v1'&&cur.s=='day'}
+function db(){var k=cur.v+cur.s;if(!DB[k]){var st={},b,x;
+ if(cur.v=='v2'){b={B03:'h',E08:'h',C05:'s',F02:'s',G09:'b'};for(x in b)st[PRE[cur.s]+'-'+x]=b[x]}
+ if(cur.v=='v3'){b=cur.s=='a'?{A10:'h',B10:'h',A05:'s',B02:'s',B18:'b'}:{R10:'h',R03:'s',R12:'b'};for(x in b)st['SW-'+x]=b[x]}
+ DB[k]={st:st,used:{}}}return DB[k]}
+function seat(o){var s=db().st[o.id]||'',c=sel[o.id]?' sel':s=='s'?' sold':s=='h'?' hold':s=='b'?' blk':'';
+ return '<button class="s'+c+'" data-id="'+o.id+'" title="'+o.id+'" aria-label="Kursi '+o.id+(s=='s'?', terjual':s=='h'?', ditahan':s=='b'?', diblokir':', tersedia')+'"'+(s?' disabled':'')+'>'+o.n+'</button>'}
+function sg(rows){return rows.map(function(r){return '<div class="r6">'+(r.lab?'<span class="rlab">'+r.lab+'</span>':'')+r.ids.map(seat).join('')+'</div>'}).join('')}
+function sw(L,rows){return rows.map(function(rg){var a=[];for(var n=rg[0];n<=rg[1];n++)a.push(so('SW-'+L+nn(n),n));return {ids:a}})}
+function zone(z){ZC[z.id]=z;var d=db(),q=qty[z.id]||0,t=z.used+(d.used[z.id]||0)+q,p=Math.min(100,t/z.cap*100);
+ return '<div class="zn">'+(z.k=='q'?'<span class="tp qx">BOOK BY QUOTA</span>':'<span class="tp dx">STANDING</span>')+'<div class="ct"><span class="disp" style="font-weight:700">'+z.name+'</span><b>'+t+'/'+z.cap+'</b></div><small style="color:var(--muted)">'+z.sub+' · Rp '+z.price+'.000</small><div class="bar"><i style="width:'+p+'%;background:'+(p>=100?'var(--soldd)':p>=80?'var(--hold)':'var(--ok)')+'"></i></div><div class="stp"><button data-z="'+z.id+'" data-d="-1" aria-label="Kurangi">−</button><b>'+q+'</b><button data-z="'+z.id+'" data-d="1" aria-label="Tambah"'+(t>=z.cap?' disabled':'')+'>+</button></div></div>'}
+function stage(l,s,b){return '<div class="vrow"><div class="stg" style="flex:3 1 200px">'+l+'<small>'+s+'</small></div><div class="stg bk" style="flex:1 1 110px">BACKSTAGE<small>'+b+'</small></div></div>'}
+function lane(t){return '<div class="ln2">'+t+'</div>'}
+function fac(a){return '<div class="vrow">'+a.map(function(x){return '<div class="fc">'+x[0]+'<small>'+x[1]+'</small></div>'}).join('')+'</div>'}
+function row(a){return '<div class="vrow">'+a.join('')+'</div>'}
+var LANE='CROSS AISLE / EMERGENCY ACCESS · KEEP CLEAR';
+function build(){var k=cur.v+cur.s,h='';
+ if(k=='v1ev')h=stage('MAIN STAGE','band / MC / LED','artist / crew')+row([zone({k:'s',id:'SA',name:'Standing A',sub:'front / general',cap:40,used:12,price:250}),zone({k:'s',id:'SB',name:'Standing B',sub:'general',cap:60,used:18,price:200}),zone({k:'s',id:'SC',name:'Standing C',sub:'side / overflow',cap:40,used:5,price:150})])+lane(LANE)+row(['<div class="tn">TENANT AREA<small>operational dining · bukan tiket</small></div>',zone({k:'q',id:'Q1',name:'Reguler Q1',sub:'reserved area',cap:50,used:16,price:200})])+fac([['A11Y','viewing'],['CHECK-IN','QR scan'],['ENTRY','inflow'],['EXIT','egress']]);
+ if(k=='v1day'){var t='';for(var i=0;i<12;i++)t+='<i class="tbl"></i>';h='<div class="vnote">Mode operasional: meja bundar dan kursi adalah pola makan harian, bukan seat ID dan tidak dijual sistem tiket.</div>'+stage('LIVE MUSIC STAGE','regular performance area','tech / crew')+row(['<div class="tn">F&amp;B TENANT<small>frontage</small></div>','<div class="tn">F&amp;B TENANT<small>frontage</small></div>'])+'<div class="tbls">'+t+'</div>'+lane('SHARED PEDESTRIAN PROMENADE · KEEP ACCESS TO TENANTS')+fac([['TENANT ACCESS','dining / pickup'],['OPEN SEATING','shared tables'],['SERVICE PATH','staff / delivery'],['PUBLIC FLOW','walk-through']])}
+ if(cur.v=='v2'){var pre=PRE[cur.s],A=[],B=[];'ABCDEFGH'.split('').forEach(function(r){var a=[],b=[],n;for(n=1;n<=5;n++)a.push(so(pre+'-'+r+nn(n),n));for(n=6;n<=10;n++)b.push(so(pre+'-'+r+nn(n),n));A.push({lab:r,ids:a});B.push({ids:b})});
+  h=stage('STAGE / SCREEN','speaker / LED / performance','crew / storage')+'<div class="vlab">BOOK BY SEAT · SAMPLE NUMBERED SEAT MAP</div><div class="atr"><div class="sd">SIDE</div><div><div class="bh">BLOCK A</div>'+sg(A)+'</div><div class="mn">MAIN AISLE</div><div><div class="bh">BLOCK B</div>'+sg(B)+'</div><div class="sd">SIDE</div></div>'+fac([['A11Y','wheelchair / companion'],['FOH','sound / camera'],['CHECK-IN','QR scan'],['EXIT','egress']])+lane('REAR CIRCULATION / EGRESS LANE · KEEP CLEAR')+row(['<div class="alt q">ALTERNATIF: BOOK BY QUOTA<small>section saja, tanpa ID kursi</small></div>','<div class="alt d">ALTERNATIF: STANDING<small>tanpa posisi individual</small></div>'])}
+ if(k=='v3a')h=stage('MAIN STAGE','concert / speaker / performance','crew / production')+row(['<div class="zn"><span class="tp sx">BLOCK A · BOOK BY SEAT</span>'+sg(sw('A',[[13,18],[7,12],[1,6]]))+'</div>','<div class="zn"><span class="tp sx">BLOCK B · BOOK BY SEAT</span>'+sg(sw('B',[[13,18],[7,12],[1,6]]))+'</div>'])+row([zone({k:'q',id:'Q1',name:'Reguler Q1',sub:'reserved section',cap:50,used:16,price:200}),zone({k:'s',id:'S1',name:'Standing S1',sub:'area berdiri',cap:60,used:24,price:150})])+lane(LANE)+fac([['CHECK-IN','QR scan'],['ENTRANCE','inflow'],['A11Y','accessible view'],['EXIT','egress']]);
+ if(k=='v3b')h=stage('MAIN STAGE','concert / speaker / performance','crew / production')+zone({k:'s',id:'S1',name:'Standing Pit S1 · Front',sub:'dekat panggung, tanpa posisi',cap:90,used:30,price:200})+row(['<div class="zn"><span class="tp sx">BOOK BY SEAT · REAR</span>'+sg(sw('R',[[7,12],[1,6]]))+'</div>',zone({k:'q',id:'Q1',name:'Reguler Q1',sub:'reserved side section',cap:50,used:16,price:200})])+lane(LANE)+fac([['CHECK-IN','QR scan'],['ENTRANCE','inflow'],['A11Y','accessible view'],['EXIT','egress']]);
+ return h}
+function calc(){var it=[],t=0;Object.keys(sel).forEach(function(id){it.push(id);t+=350});Object.keys(qty).forEach(function(id){var z=ZC[id];for(var i=0;i<qty[id];i++){it.push(z.name);t+=z.price}});return {it:it,t:t}}
+function tabs(){var t='',k,s='',ss=V[cur.v].s;for(k in V)t+='<button class="chip'+(k==cur.v?' on':'')+'" data-v="'+k+'" style="cursor:pointer">'+V[k].n+'</button>';
+ document.getElementById('vtabs').innerHTML=t;for(k in ss)s+='<button class="chip'+(k==cur.s?' on':'')+'" data-s="'+k+'" style="cursor:pointer">'+ss[k]+'</button>';
+ document.getElementById('vsub').innerHTML=s;document.getElementById('vmeta').textContent=V[cur.v].m}
+function panel(){var c=calc(),h='',names=['Pilih','Isi data','Bayar','E-ticket'];
+ var st='<div class="fsteps">'+names.map(function(n,i){return '<span class="'+(i+1==step?'on':i+1<step?'dn':'')+'">'+(i+1)+' · '+n+'</span>'}).join('')+'</div>';
+ if(nt())h='<div class="vnote">Mode operasional harian tidak memiliki inventori tiket. Pilih "Event bertiket" untuk memesan.</div>';
+ else if(step==1)h=(note?'<div class="vnote">'+note+'</div>':'')+'<div class="bkc"><div><b class="disp">'+(c.it.length?c.it.length+' tiket · '+fmt(c.t):'Belum ada pilihan')+'</b><br><small style="color:var(--muted)">'+(c.it.length?c.it.join(', ')+'. ':'')+'Memilih belum mengunci kursi. Kursi ditahan 10 menit setelah kamu masuk ke langkah isi data.</small></div><button class="btn b1 sm" id="go1"'+(c.it.length?'':' disabled')+'>Lanjut ke Isi Data</button></div>';
+ else if(step==2)h='<div class="tm"><span>Kursi ditahan untukmu · '+c.it.join(', ')+'</span><b id="tmv">'+mmss(secs)+'</b></div><div class="fg"><label>Nama pemesan<input placeholder="Nama lengkap"></label><label>No. WhatsApp<input placeholder="08xx xxxx xxxx"></label>'+c.it.map(function(x,i){return '<label>Peserta '+(i+1)+' · '+x+'<input placeholder="Nama peserta"></label>'}).join('')+'</div><div class="row"><button class="btn b2 sm" id="back2">Kembali dan lepas kursi</button><button class="btn b1 sm" id="go2">Lanjut ke Pembayaran</button></div>';
+ else if(step==3)h='<div class="tm"><span>Menunggu pembayaran QRIS · maks. 7 menit</span><b id="tmv">'+mmss(secs)+'</b></div><div class="qp"><div class="qrb lg"></div><div><span class="sbx">QRIS · SANDBOX</span><div class="disp" style="font-size:22px;margin:8px 0 2px">'+fmt(c.t)+'</div><small style="color:var(--muted)">Pindai dengan simulator sandbox. Tidak ada uang sungguhan.</small></div></div><div class="row" style="justify-content:center"><button class="btn b1 sm" id="paid">Simulasikan Pembayaran Berhasil</button><button class="btn b3 sm" id="fail">Simulasikan Gagal</button></div>';
+ else h=(res=='ok'?'<div class="res valid">✓ Pembayaran berhasil · e-ticket (1 QR) dikirim via WhatsApp · Scan 0/'+rn+'</div>':'<div class="res invalid">✕ '+(res=='exp'?'Waktu pembayaran 7 menit habis':'Pembayaran gagal')+' · kursi dilepas setelah status pembayaran diperiksa</div>')+'<div class="row" style="justify-content:center;margin-top:10px"><button class="btn b3 sm" id="again">Pesan lagi</button></div>';
+ document.getElementById('fpanel').innerHTML=st+h}
+function draw(){ZC={};var h=build();root.className='vmap'+(cur.v=='v3'?' poly':'')+(step>1?' lk':'');root.innerHTML=h;tabs();panel()}
+function reset(){sel={};qty={};step=1;res='';note=''}
+root.onclick=function(e){var b=e.target.closest('button');if(!b||step!=1||nt())return;
+ if(b.dataset.id){var id=b.dataset.id;if(sel[id])delete sel[id];else sel[id]=1;draw()}
+ else if(b.dataset.z){var z=ZC[b.dataset.z],q=(qty[z.id]||0)+(+b.dataset.d);if(q<0||z.used+(db().used[z.id]||0)+q>z.cap)return;qty[z.id]=q;if(!q)delete qty[z.id];draw()}};
+document.getElementById('vtabs').onclick=function(e){var b=e.target.closest('button');if(!b)return;cur.v=b.dataset.v;cur.s=Object.keys(V[cur.v].s)[0];reset();draw()};
+document.getElementById('vsub').onclick=function(e){var b=e.target.closest('button');if(!b)return;cur.s=b.dataset.s;reset();draw()};
+document.getElementById('fpanel').onclick=function(e){var b=e.target.closest('button');if(!b)return;
+ if(b.id=='go1'){step=2;secs=600;note='';draw()}
+ else if(b.id=='back2'){step=1;note='Kursi dilepas. Pilihanmu masih tersimpan.';draw()}
+ else if(b.id=='go2'){step=3;secs=420;draw()}
+ else if(b.id=='paid'){var d=db(),c=calc();rn=c.it.length;Object.keys(sel).forEach(function(id){d.st[id]='s'});Object.keys(qty).forEach(function(id){d.used[id]=(d.used[id]||0)+qty[id]});sel={};qty={};res='ok';step=4;draw()}
+ else if(b.id=='fail'){sel={};qty={};res='fail';step=4;draw()}
+ else if(b.id=='again'){step=1;res='';note='';draw()}};
+setInterval(function(){if(step!=2&&step!=3)return;secs--;if(secs<=0){sel={};qty={};if(step==2){step=1;note='Waktu isi data habis (10 menit). Kursi dilepas.'}else{res='exp';step=4}draw();return}var e=document.getElementById('tmv');if(e)e.textContent=mmss(secs)},1000);
+draw();
 })();
 </script>
 </body>

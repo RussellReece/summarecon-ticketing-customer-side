@@ -1,0 +1,4949 @@
+{
+  "_meta": {
+    "project_name": "Event Ticketing & Venue Management System",
+    "case_company": "Summarecon Mall Bandung (study-case / prototype context)",
+    "file_purpose": "Struktur data JSON lengkap dengan dummy seed data untuk prototyping dan pengujian alur sistem.",
+    "generated_at": "2026-11-06T12:20:00+07:00",
+    "timezone": "Asia/Jakarta",
+    "data_classification": "SYNTHETIC_DUMMY_DATA",
+    "source_documents": [
+      {
+        "file": "FIX DOKUMEN ANALISIS AWAL SISTEM_104621.pdf",
+        "usage": "Baseline proses, business rules, aktor, booking, pembayaran, ticket, check-in, refund, modul."
+      },
+      {
+        "file": "Blueprint_Venue_Event_Ticketing_Summarecon_Bandung_REVISI.pdf",
+        "usage": "Nama venue, pilihan denah, section, seat ID contoh, arsitektur layout, batasan kapasitas."
+      }
+    ],
+    "selected_venue_layouts": [
+      {
+        "venue_id": "VEN-DWT-001",
+        "venue_name": "Downtown Walk",
+        "selected_layout": "Konfigurasi Event Bertiket",
+        "blueprint_page": 7
+      },
+      {
+        "venue_id": "VEN-ATR-001",
+        "venue_name": "Atrium Cibadak (Lobby Ageung)",
+        "selected_layout": "Sample Numbered Seat Map / Book by Seat",
+        "blueprint_page": 8,
+        "selection_note": "Dipilih satu dari alternatif Atrium Cibadak, Atrium Cileutik, dan Atrium Ciunik."
+      },
+      {
+        "venue_id": "VEN-SWG-001",
+        "venue_name": "Sawarga Courtyard",
+        "selected_layout": "Opsi B - Standing Pit Lebih Dekat ke Panggung",
+        "blueprint_page": 12,
+        "selection_note": "Dipilih satu dari template alternatif Opsi A dan Opsi B."
+      }
+    ],
+    "critical_disclaimers": [
+      "Blueprint adalah konsep prototype, bukan denah teknis resmi atau gambar kerja arsitektur.",
+      "Kapasitas resmi venue, kapasitas aman, batas area, jalur evakuasi, dan persetujuan operasional masih harus divalidasi dengan pengelola.",
+      "Seluruh kapasitas dummy pada event_sections hanya untuk pengujian aplikasi dan tidak boleh dianggap sebagai kapasitas resmi.",
+      "Koordinat posisi layout dan seat adalah perkiraan normalized untuk kebutuhan visualisasi prototype, bukan koordinat ukur lapangan.",
+      "Data identitas, email, nomor telepon, rekening, nomor e-wallet, dan transaksi di file ini sepenuhnya fiktif."
+    ]
+  },
+  "data_dictionary": {
+    "layout_architecture": "venues (master venue) -> layout_templates (preset event yang disetujui/tersedia) -> event_layout_snapshots (snapshot konfigurasi saat penjualan dimulai).",
+    "booking_architecture": "event_sections menyimpan inventory per section; event_seats hanya dibuat untuk BOOK_BY_SEAT; booking_holds menyimpan lock; orders dan order_items menyimpan pemesanan; tickets menyimpan setiap admission/peserta.",
+    "qr_architecture": "Satu e_ticket QR untuk satu order. QR scan_count dibandingkan dengan jumlah tiket yang masih valid. Setiap scan sukses ditautkan ke satu ticket melalui checkin_records.",
+    "refund_architecture": "Satu refund record dapat mencakup satu atau beberapa ticket. Refund peserta masuk UNDER_REVIEW setelah data tujuan lengkap. Refund pembatalan event tidak memerlukan approval peserta; status awal REQUESTED bila data kosong, lalu APPROVED setelah data lengkap. Transfer dilakukan manual di luar sistem.",
+    "dummy_vs_production": "Gunakan struktur ini sebagai sample payload/seed. Untuk produksi diperlukan JSON Schema terpisah, validasi backend, enkripsi data rekening/e-wallet, access control, audit log, dan integrasi penyedia layanan.",
+    "payment_vs_refund": "Pembayaran tiket dibukukan sebagai transaksi QRIS sandbox. Refund merupakan catatan operasional terpisah; rekening/e-wallet tujuan disimpan pada refunds.refund_destination dan dana ditransfer manual, sehingga status payment gateway tidak otomatis berubah menjadi REFUNDED."
+  },
+  "system_settings": {
+    "booking": {
+      "queue_enabled": true,
+      "queue_policy": "FIFO",
+      "queue_scope": "PER_EVENT",
+      "seat_lock_duration_minutes": 10,
+      "quota_lock_duration_minutes": 10,
+      "allow_multiple_tickets_per_order": true,
+      "order_customer_data_mode": "ONE_BUYER_PROFILE_PER_ORDER",
+      "participant_name_mode": "ONE_NAME_PER_TICKET",
+      "seat_lock_release_rule": "CHECK_LATEST_PAYMENT_STATUS_BEFORE_RELEASE"
+    },
+    "payment": {
+      "payment_provider_mode": "SANDBOX",
+      "accepted_payment_method": "QRIS",
+      "payment_pending_max_minutes": 7,
+      "callback_idempotency_enabled": true,
+      "issue_ticket_only_after_payment_success": true,
+      "refund_transfer_by_gateway": false,
+      "refund_transfer_note": "Pengembalian dana dilakukan manual oleh admin di luar sistem; payment gateway sandbox dipakai untuk simulasi pembayaran tiket."
+    },
+    "ticket_and_checkin": {
+      "qr_scope": "ONE_QR_PER_ORDER",
+      "max_successful_scans": "COUNT_OF_VALID_TICKETS_IN_ORDER",
+      "scan_consumption": "ONE_SUCCESSFUL_SCAN_CONSUMES_ONE_VALID_TICKET",
+      "atomic_scan_validation": true,
+      "refund_or_cancelled_ticket_checkin_allowed": false
+    },
+    "refund": {
+      "participant_request_deadline": "H-1_BEFORE_EVENT_START",
+      "refund_admin_fee": 0,
+      "participant_request_requires_admin_approval": true,
+      "event_cancellation_requires_participant_approval": false,
+      "event_cancellation_requires_participant_destination_data": true,
+      "supported_destination_methods": [
+        "BANK_TRANSFER",
+        "E_WALLET"
+      ],
+      "required_destination_fields": [
+        "method",
+        "provider_name",
+        "account_number",
+        "account_holder_name"
+      ],
+      "manual_transfer_by_admin": true,
+      "target_processing_max_days_after_destination_complete": 7,
+      "refund_completion_notification_mode": "MANUAL_ADMIN_CLICK",
+      "system_auto_transfer": false,
+      "partial_refund_supported": true,
+      "no_admin_fee_if_request_submitted_by": "H-1_BEFORE_EVENT_START"
+    },
+    "participant": {
+      "name_change_deadline": "H-1_BEFORE_EVENT_START"
+    },
+    "notifications": {
+      "channel": "WHATSAPP",
+      "ticket_delivery": true,
+      "reminders_days_before_event": [
+        3,
+        1
+      ],
+      "event_cancellation_notification": "SYSTEM_TRIGGERED",
+      "refund_completed_notification": "MANUAL_ADMIN_CLICK"
+    }
+  },
+  "enums": {
+    "event_status": [
+      "DRAFT",
+      "PUBLISHED",
+      "SALES_OPEN",
+      "SALES_CLOSED",
+      "ONGOING",
+      "COMPLETED",
+      "CANCELLED"
+    ],
+    "booking_type": [
+      "BOOK_BY_SEAT",
+      "BOOK_BY_QUOTA",
+      "STANDING"
+    ],
+    "section_inventory_status": [
+      "ACTIVE",
+      "DISABLED_EVENT_CANCELLED"
+    ],
+    "seat_status": [
+      "AVAILABLE",
+      "LOCKED",
+      "SOLD",
+      "BLOCKED",
+      "DISABLED_EVENT_CANCELLED"
+    ],
+    "order_status": [
+      "PENDING",
+      "PAID",
+      "EXPIRED",
+      "CANCELLED",
+      "PARTIALLY_REFUNDED",
+      "REFUNDED"
+    ],
+    "payment_status": [
+      "INITIATED",
+      "PENDING",
+      "SUCCESS",
+      "FAILED",
+      "EXPIRED"
+    ],
+    "ticket_status": [
+      "RESERVED",
+      "ISSUED",
+      "USED",
+      "REFUND_PENDING",
+      "REFUNDED",
+      "CANCELLED"
+    ],
+    "attendance_status": [
+      "NOT_CHECKED_IN",
+      "CHECKED_IN"
+    ],
+    "refund_status": [
+      "REQUESTED",
+      "UNDER_REVIEW",
+      "REJECTED",
+      "APPROVED",
+      "PROCESSING",
+      "COMPLETED",
+      "NEED_CONFIRMATION"
+    ],
+    "refund_data_status": [
+      "NOT_SUBMITTED",
+      "COMPLETE",
+      "NEED_CORRECTION"
+    ],
+    "notification_status": [
+      "QUEUED",
+      "SENT",
+      "DELIVERED",
+      "FAILED"
+    ],
+    "payment_method": [
+      "QRIS"
+    ],
+    "refund_method": [
+      "BANK_TRANSFER",
+      "E_WALLET"
+    ]
+  },
+  "roles": [
+    {
+      "role_id": "ROLE-CUSTOMER",
+      "role_name": "CUSTOMER",
+      "description": "Pengunjung/peserta yang melakukan pemesanan dan mengelola tiket/refund miliknya."
+    },
+    {
+      "role_id": "ROLE-ADMIN",
+      "role_name": "ADMIN",
+      "description": "Admin internal yang mengelola venue, event, transaksi, refund, dan laporan."
+    },
+    {
+      "role_id": "ROLE-CHECKIN",
+      "role_name": "CHECK_IN_STAFF",
+      "description": "Petugas yang memindai QR dan mencatat kehadiran."
+    }
+  ],
+  "permissions": [
+    {
+      "permission_id": "PERM-EVENT-READ",
+      "code": "event.read",
+      "description": "Melihat event dan detail event."
+    },
+    {
+      "permission_id": "PERM-BOOKING-CREATE",
+      "code": "booking.create",
+      "description": "Membuat booking."
+    },
+    {
+      "permission_id": "PERM-REFUND-REQUEST",
+      "code": "refund.request",
+      "description": "Mengajukan refund dan mengisi data tujuan."
+    },
+    {
+      "permission_id": "PERM-EVENT-MANAGE",
+      "code": "event.manage",
+      "description": "Mengelola event dan konfigurasi event."
+    },
+    {
+      "permission_id": "PERM-REFUND-MANAGE",
+      "code": "refund.manage",
+      "description": "Meninjau dan mengelola refund."
+    },
+    {
+      "permission_id": "PERM-REPORT-READ",
+      "code": "report.read",
+      "description": "Melihat dashboard dan laporan."
+    },
+    {
+      "permission_id": "PERM-CHECKIN-SCAN",
+      "code": "checkin.scan",
+      "description": "Melakukan scan QR check-in."
+    }
+  ],
+  "role_permissions": [
+    {
+      "role_id": "ROLE-CUSTOMER",
+      "permission_ids": [
+        "PERM-EVENT-READ",
+        "PERM-BOOKING-CREATE",
+        "PERM-REFUND-REQUEST"
+      ]
+    },
+    {
+      "role_id": "ROLE-ADMIN",
+      "permission_ids": [
+        "PERM-EVENT-READ",
+        "PERM-EVENT-MANAGE",
+        "PERM-REFUND-MANAGE",
+        "PERM-REPORT-READ"
+      ]
+    },
+    {
+      "role_id": "ROLE-CHECKIN",
+      "permission_ids": [
+        "PERM-EVENT-READ",
+        "PERM-CHECKIN-SCAN"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "user_id": "USR-ADM-001",
+      "role_id": "ROLE-ADMIN",
+      "full_name": "Admin Demo",
+      "email": "admin.demo@example.test",
+      "phone_number": "+628110000001",
+      "password_hash": "$2b$12$DUMMY_HASH_NOT_FOR_AUTH",
+      "account_status": "ACTIVE",
+      "created_at": "2026-10-01T09:00:00+07:00"
+    },
+    {
+      "user_id": "USR-CHK-001",
+      "role_id": "ROLE-CHECKIN",
+      "full_name": "Petugas Check-in Demo",
+      "email": "checkin.demo@example.test",
+      "phone_number": "+628110000002",
+      "password_hash": "$2b$12$DUMMY_HASH_NOT_FOR_AUTH",
+      "account_status": "ACTIVE",
+      "created_at": "2026-10-01T09:10:00+07:00"
+    },
+    {
+      "user_id": "USR-CUS-001",
+      "role_id": "ROLE-CUSTOMER",
+      "full_name": "Nadia Putri",
+      "email": "nadia.demo@example.test",
+      "phone_number": "+628110000101",
+      "password_hash": "$2b$12$DUMMY_HASH_NOT_FOR_AUTH",
+      "account_status": "ACTIVE",
+      "created_at": "2026-10-10T10:00:00+07:00"
+    },
+    {
+      "user_id": "USR-CUS-002",
+      "role_id": "ROLE-CUSTOMER",
+      "full_name": "Rafi Pratama",
+      "email": "rafi.demo@example.test",
+      "phone_number": "+628110000102",
+      "password_hash": "$2b$12$DUMMY_HASH_NOT_FOR_AUTH",
+      "account_status": "ACTIVE",
+      "created_at": "2026-10-11T11:00:00+07:00"
+    },
+    {
+      "user_id": "USR-CUS-003",
+      "role_id": "ROLE-CUSTOMER",
+      "full_name": "Dina Maharani",
+      "email": "dina.demo@example.test",
+      "phone_number": "+628110000103",
+      "password_hash": "$2b$12$DUMMY_HASH_NOT_FOR_AUTH",
+      "account_status": "ACTIVE",
+      "created_at": "2026-10-12T12:00:00+07:00"
+    },
+    {
+      "user_id": "USR-CUS-004",
+      "role_id": "ROLE-CUSTOMER",
+      "full_name": "Bima Saputra",
+      "email": "bima.demo@example.test",
+      "phone_number": "+628110000104",
+      "password_hash": "$2b$12$DUMMY_HASH_NOT_FOR_AUTH",
+      "account_status": "ACTIVE",
+      "created_at": "2026-10-13T13:00:00+07:00"
+    }
+  ],
+  "venues": [
+    {
+      "venue_id": "VEN-DWT-001",
+      "venue_code": "V1",
+      "venue_name": "Downtown Walk",
+      "venue_alias": "Downtown Walk - Alfresco Dining",
+      "venue_type": "OUTDOOR_ALFRESCO",
+      "floor": "GROUND_FLOOR",
+      "location_label": "Summarecon Mall Bandung",
+      "master_layout_version": "DWT-MASTER-V1",
+      "status": "ACTIVE",
+      "capacity_validation_status": "TBC_NOT_OFFICIALLY_VALIDATED",
+      "capacity_official": null,
+      "notes": "Pola dining harian bukan inventory tiket. Data ticketable memakai preset event bertiket; tenant area dan jalur pedestrian dikecualikan.",
+      "master_layout_elements": [
+        {
+          "element_id": "DWT-ME-01",
+          "name": "Main Stage",
+          "element_type": "STAGE",
+          "ticketable": false
+        },
+        {
+          "element_id": "DWT-ME-02",
+          "name": "Backstage",
+          "element_type": "BACKSTAGE",
+          "ticketable": false
+        },
+        {
+          "element_id": "DWT-ME-03",
+          "name": "Tenant Area",
+          "element_type": "TENANT_AREA",
+          "ticketable": false
+        },
+        {
+          "element_id": "DWT-ME-04",
+          "name": "Cross Aisle / Emergency Access",
+          "element_type": "EMERGENCY_ACCESS",
+          "ticketable": false
+        },
+        {
+          "element_id": "DWT-ME-05",
+          "name": "Entry",
+          "element_type": "ENTRY",
+          "ticketable": false
+        },
+        {
+          "element_id": "DWT-ME-06",
+          "name": "Exit",
+          "element_type": "EXIT",
+          "ticketable": false
+        }
+      ]
+    },
+    {
+      "venue_id": "VEN-ATR-001",
+      "venue_code": "V2A",
+      "venue_name": "Atrium Cibadak",
+      "venue_alias": "Lobby Ageung",
+      "venue_type": "INDOOR_ATRIUM",
+      "floor": "GROUND_FLOOR",
+      "location_label": "Summarecon Mall Bandung",
+      "master_layout_version": "ATR-CBD-MASTER-V1",
+      "status": "ACTIVE",
+      "capacity_validation_status": "TBC_NOT_OFFICIALLY_VALIDATED",
+      "capacity_official": null,
+      "notes": "Satu alternatif venue indoor yang dipilih dari kelompok Atrium Cibadak/Cileutik/Ciunik. Blueprint menggunakan ejaan Cibadak dari peta pengguna; ejaan Cibadag juga muncul pada halaman fasilitas.",
+      "master_layout_elements": [
+        {
+          "element_id": "ATR-ME-01",
+          "name": "Stage / Screen",
+          "element_type": "STAGE",
+          "ticketable": false
+        },
+        {
+          "element_id": "ATR-ME-02",
+          "name": "Backstage",
+          "element_type": "BACKSTAGE",
+          "ticketable": false
+        },
+        {
+          "element_id": "ATR-ME-03",
+          "name": "Main Aisle",
+          "element_type": "AISLE",
+          "ticketable": false
+        },
+        {
+          "element_id": "ATR-ME-04",
+          "name": "Side Aisle",
+          "element_type": "AISLE",
+          "ticketable": false
+        },
+        {
+          "element_id": "ATR-ME-05",
+          "name": "Customer Care / Lobby Access",
+          "element_type": "PUBLIC_ACCESS",
+          "ticketable": false
+        },
+        {
+          "element_id": "ATR-ME-06",
+          "name": "Exit",
+          "element_type": "EXIT",
+          "ticketable": false
+        }
+      ]
+    },
+    {
+      "venue_id": "VEN-SWG-001",
+      "venue_code": "V3",
+      "venue_name": "Sawarga Courtyard",
+      "venue_alias": "Sawarga Courtyard - Outdoor Oasis",
+      "venue_type": "OUTDOOR_COURTYARD",
+      "floor": "GROUND_FLOOR",
+      "location_label": "Summarecon Mall Bandung",
+      "master_layout_version": "SWG-MASTER-V1",
+      "status": "ACTIVE",
+      "capacity_validation_status": "TBC_NOT_OFFICIALLY_VALIDATED",
+      "capacity_official": null,
+      "notes": "Venue outdoor. Opsi A dan B merupakan template alternatif, bukan layout permanen. Data dummy menggunakan Opsi B.",
+      "master_layout_elements": [
+        {
+          "element_id": "SWG-ME-01",
+          "name": "Main Stage",
+          "element_type": "STAGE",
+          "ticketable": false
+        },
+        {
+          "element_id": "SWG-ME-02",
+          "name": "Backstage",
+          "element_type": "BACKSTAGE",
+          "ticketable": false
+        },
+        {
+          "element_id": "SWG-ME-03",
+          "name": "Cross Aisle / Egress",
+          "element_type": "EMERGENCY_ACCESS",
+          "ticketable": false
+        },
+        {
+          "element_id": "SWG-ME-04",
+          "name": "Entrance",
+          "element_type": "ENTRY",
+          "ticketable": false
+        },
+        {
+          "element_id": "SWG-ME-05",
+          "name": "Exit",
+          "element_type": "EXIT",
+          "ticketable": false
+        },
+        {
+          "element_id": "SWG-ME-06",
+          "name": "Accessible View",
+          "element_type": "ACCESSIBLE_VIEWING",
+          "ticketable": false
+        }
+      ]
+    }
+  ],
+  "layout_templates": [
+    {
+      "layout_template_id": "TPL-DWT-EVENT-01",
+      "venue_id": "VEN-DWT-001",
+      "template_code": "DWT-EVENT-TICKETED",
+      "template_name": "Downtown Walk - Konfigurasi Event Bertiket",
+      "version": "1.0",
+      "source_blueprint_page": 7,
+      "selection": "CHOSEN_VENUE_1_LAYOUT",
+      "template_status": "PROTOTYPE_CONCEPT",
+      "active_booking_types": [
+        "STANDING",
+        "BOOK_BY_QUOTA"
+      ],
+      "optional_booking_type_note": "Book by Seat hanya digunakan jika kursi event sementara dipasang dan diberi seat ID; tidak aktif pada preset dummy ini.",
+      "layout_elements": [
+        {
+          "element_id": "DWT-L-01",
+          "name": "Main Stage",
+          "element_type": "STAGE",
+          "ticketable": false,
+          "position": {
+            "x": 31,
+            "y": 8,
+            "width": 31,
+            "height": 10,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        },
+        {
+          "element_id": "DWT-L-02",
+          "name": "Backstage",
+          "element_type": "BACKSTAGE",
+          "ticketable": false,
+          "position": {
+            "x": 63,
+            "y": 8,
+            "width": 17,
+            "height": 10,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        },
+        {
+          "element_id": "DWT-L-03",
+          "name": "Standing A - Front / General",
+          "element_type": "TICKET_SECTION",
+          "ticketable": true,
+          "position": {
+            "x": 6,
+            "y": 25,
+            "width": 26,
+            "height": 23,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE",
+          "section_id": "SEC-DWT-SA",
+          "booking_type": "STANDING"
+        },
+        {
+          "element_id": "DWT-L-04",
+          "name": "Standing B - General",
+          "element_type": "TICKET_SECTION",
+          "ticketable": true,
+          "position": {
+            "x": 34,
+            "y": 25,
+            "width": 26,
+            "height": 23,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE",
+          "section_id": "SEC-DWT-SB",
+          "booking_type": "STANDING"
+        },
+        {
+          "element_id": "DWT-L-05",
+          "name": "Standing C - Side / Overflow",
+          "element_type": "TICKET_SECTION",
+          "ticketable": true,
+          "position": {
+            "x": 62,
+            "y": 25,
+            "width": 26,
+            "height": 23,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE",
+          "section_id": "SEC-DWT-SC",
+          "booking_type": "STANDING"
+        },
+        {
+          "element_id": "DWT-L-06",
+          "name": "Cross Aisle / Emergency Access",
+          "element_type": "EMERGENCY_ACCESS",
+          "ticketable": false,
+          "position": {
+            "x": 7,
+            "y": 51,
+            "width": 82,
+            "height": 4,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        },
+        {
+          "element_id": "DWT-L-07",
+          "name": "Tenant Area",
+          "element_type": "TENANT_AREA",
+          "ticketable": false,
+          "position": {
+            "x": 6,
+            "y": 63,
+            "width": 19,
+            "height": 14,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE",
+          "note": "Area operasional tenant; tidak dijual sebagai inventory tiket."
+        },
+        {
+          "element_id": "DWT-L-08",
+          "name": "Book by Quota Q1 - Reserved Area",
+          "element_type": "TICKET_SECTION",
+          "ticketable": true,
+          "position": {
+            "x": 27,
+            "y": 63,
+            "width": 19,
+            "height": 14,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE",
+          "section_id": "SEC-DWT-Q1",
+          "booking_type": "BOOK_BY_QUOTA"
+        },
+        {
+          "element_id": "DWT-L-09",
+          "name": "A11Y",
+          "element_type": "ACCESSIBLE_VIEWING",
+          "ticketable": false,
+          "position": {
+            "x": 48,
+            "y": 63,
+            "width": 12,
+            "height": 14,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        },
+        {
+          "element_id": "DWT-L-10",
+          "name": "Check-in",
+          "element_type": "CHECK_IN",
+          "ticketable": false,
+          "position": {
+            "x": 62,
+            "y": 63,
+            "width": 12,
+            "height": 14,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        },
+        {
+          "element_id": "DWT-L-11",
+          "name": "Entry",
+          "element_type": "ENTRY",
+          "ticketable": false,
+          "position": {
+            "x": 76,
+            "y": 63,
+            "width": 10,
+            "height": 14,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        },
+        {
+          "element_id": "DWT-L-12",
+          "name": "Exit",
+          "element_type": "EXIT",
+          "ticketable": false,
+          "position": {
+            "x": 88,
+            "y": 63,
+            "width": 9,
+            "height": 14,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        }
+      ],
+      "sections": [
+        {
+          "section_id": "SEC-DWT-SA",
+          "section_code": "STANDING_A",
+          "section_name": "Standing A",
+          "physical_setup": "STANDING",
+          "booking_type": "STANDING",
+          "seat_assignment": false,
+          "prototype_capacity": 100,
+          "capacity_source": "DUMMY_FOR_TESTING_ONLY"
+        },
+        {
+          "section_id": "SEC-DWT-SB",
+          "section_code": "STANDING_B",
+          "section_name": "Standing B",
+          "physical_setup": "STANDING",
+          "booking_type": "STANDING",
+          "seat_assignment": false,
+          "prototype_capacity": 120,
+          "capacity_source": "DUMMY_FOR_TESTING_ONLY"
+        },
+        {
+          "section_id": "SEC-DWT-SC",
+          "section_code": "STANDING_C",
+          "section_name": "Standing C",
+          "physical_setup": "STANDING",
+          "booking_type": "STANDING",
+          "seat_assignment": false,
+          "prototype_capacity": 75,
+          "capacity_source": "DUMMY_FOR_TESTING_ONLY"
+        },
+        {
+          "section_id": "SEC-DWT-Q1",
+          "section_code": "QUOTA_Q1",
+          "section_name": "Book by Quota Q1",
+          "physical_setup": "RESERVED_UNNUMBERED_AREA",
+          "booking_type": "BOOK_BY_QUOTA",
+          "seat_assignment": false,
+          "prototype_capacity": 50,
+          "capacity_source": "DUMMY_FOR_TESTING_ONLY"
+        }
+      ],
+      "non_ticketable_elements": [
+        "Tenant Area",
+        "Main Stage",
+        "Backstage",
+        "Cross Aisle / Emergency Access",
+        "A11Y",
+        "Check-in",
+        "Entry",
+        "Exit"
+      ]
+    },
+    {
+      "layout_template_id": "TPL-ATR-CBD-SEAT-01",
+      "venue_id": "VEN-ATR-001",
+      "template_code": "ATR-CIBADAK-BOOK-BY-SEAT",
+      "template_name": "Atrium Cibadak - Sample Numbered Seat Map",
+      "version": "1.0",
+      "source_blueprint_page": 8,
+      "selection": "CHOSEN_VENUE_2_LAYOUT",
+      "template_status": "PROTOTYPE_CONCEPT",
+      "active_booking_types": [
+        "BOOK_BY_SEAT"
+      ],
+      "alternative_layouts_not_selected": [
+        "BOOK_BY_QUOTA",
+        "STANDING"
+      ],
+      "layout_elements": [
+        {
+          "element_id": "ATR-L-01",
+          "name": "Stage / Screen",
+          "element_type": "STAGE",
+          "ticketable": false,
+          "position": {
+            "x": 25,
+            "y": 7,
+            "width": 25,
+            "height": 10,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        },
+        {
+          "element_id": "ATR-L-02",
+          "name": "Backstage",
+          "element_type": "BACKSTAGE",
+          "ticketable": false,
+          "position": {
+            "x": 56,
+            "y": 7,
+            "width": 16,
+            "height": 10,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        },
+        {
+          "element_id": "ATR-L-03",
+          "name": "Block A - Seat 01-05",
+          "element_type": "TICKET_SECTION",
+          "ticketable": true,
+          "position": {
+            "x": 16,
+            "y": 26,
+            "width": 28,
+            "height": 31,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE",
+          "section_id": "SEC-ATR-A",
+          "booking_type": "BOOK_BY_SEAT"
+        },
+        {
+          "element_id": "ATR-L-04",
+          "name": "Main Aisle",
+          "element_type": "AISLE",
+          "ticketable": false,
+          "position": {
+            "x": 48,
+            "y": 26,
+            "width": 11,
+            "height": 31,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        },
+        {
+          "element_id": "ATR-L-05",
+          "name": "Block B - Seat 06-10",
+          "element_type": "TICKET_SECTION",
+          "ticketable": true,
+          "position": {
+            "x": 61,
+            "y": 26,
+            "width": 27,
+            "height": 31,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE",
+          "section_id": "SEC-ATR-B",
+          "booking_type": "BOOK_BY_SEAT"
+        },
+        {
+          "element_id": "ATR-L-06",
+          "name": "A11Y",
+          "element_type": "ACCESSIBLE_VIEWING",
+          "ticketable": false,
+          "position": {
+            "x": 17,
+            "y": 65,
+            "width": 14,
+            "height": 10,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        },
+        {
+          "element_id": "ATR-L-07",
+          "name": "FOH",
+          "element_type": "FRONT_OF_HOUSE",
+          "ticketable": false,
+          "position": {
+            "x": 33,
+            "y": 65,
+            "width": 14,
+            "height": 10,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        },
+        {
+          "element_id": "ATR-L-08",
+          "name": "Check-in",
+          "element_type": "CHECK_IN",
+          "ticketable": false,
+          "position": {
+            "x": 51,
+            "y": 65,
+            "width": 14,
+            "height": 10,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        },
+        {
+          "element_id": "ATR-L-09",
+          "name": "Exit",
+          "element_type": "EXIT",
+          "ticketable": false,
+          "position": {
+            "x": 69,
+            "y": 65,
+            "width": 14,
+            "height": 10,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        },
+        {
+          "element_id": "ATR-L-10",
+          "name": "Rear Circulation / Egress Lane",
+          "element_type": "EMERGENCY_ACCESS",
+          "ticketable": false,
+          "position": {
+            "x": 19,
+            "y": 78,
+            "width": 66,
+            "height": 4,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        },
+        {
+          "element_id": "ATR-L-11",
+          "name": "Side Aisles",
+          "element_type": "AISLE",
+          "ticketable": false,
+          "position": {
+            "x": 8,
+            "y": 27,
+            "width": 3,
+            "height": 30,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        },
+        {
+          "element_id": "ATR-L-12",
+          "name": "Side Aisles",
+          "element_type": "AISLE",
+          "ticketable": false,
+          "position": {
+            "x": 91,
+            "y": 27,
+            "width": 3,
+            "height": 30,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        }
+      ],
+      "sections": [
+        {
+          "section_id": "SEC-ATR-A",
+          "section_code": "BLOCK_A",
+          "section_name": "Block A",
+          "physical_setup": "NUMBERED_SEATING",
+          "booking_type": "BOOK_BY_SEAT",
+          "seat_label_range": "A01-H05",
+          "prototype_capacity": 40,
+          "capacity_source": "80_SAMPLE_SEAT_IDS_TOTAL_IN_BLUEPRINT"
+        },
+        {
+          "section_id": "SEC-ATR-B",
+          "section_code": "BLOCK_B",
+          "section_name": "Block B",
+          "physical_setup": "NUMBERED_SEATING",
+          "booking_type": "BOOK_BY_SEAT",
+          "seat_label_range": "A06-H10",
+          "prototype_capacity": 40,
+          "capacity_source": "80_SAMPLE_SEAT_IDS_TOTAL_IN_BLUEPRINT"
+        }
+      ],
+      "seat_grid_definition": {
+        "rows": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H"
+        ],
+        "block_a_seat_numbers": [
+          "01",
+          "02",
+          "03",
+          "04",
+          "05"
+        ],
+        "block_b_seat_numbers": [
+          "06",
+          "07",
+          "08",
+          "09",
+          "10"
+        ],
+        "seat_count": 80,
+        "note": "8 row x 10 kursi adalah sample ID untuk prototype, bukan kapasitas resmi atrium."
+      }
+    },
+    {
+      "layout_template_id": "TPL-SWG-OPTION-B-01",
+      "venue_id": "VEN-SWG-001",
+      "template_code": "SAWARGA-OPTION-B-STANDING-FRONT",
+      "template_name": "Sawarga Courtyard - Opsi B: Standing Pit Lebih Dekat ke Panggung",
+      "version": "1.0",
+      "source_blueprint_page": 12,
+      "selection": "CHOSEN_VENUE_3_LAYOUT",
+      "template_status": "PROTOTYPE_CONCEPT",
+      "active_booking_types": [
+        "STANDING",
+        "BOOK_BY_SEAT",
+        "BOOK_BY_QUOTA"
+      ],
+      "alternative_template_not_selected": "Sawarga Opsi A - Book by Seat lebih dekat ke panggung",
+      "layout_elements": [
+        {
+          "element_id": "SWG-L-01",
+          "name": "Main Stage",
+          "element_type": "STAGE",
+          "ticketable": false,
+          "position": {
+            "x": 27,
+            "y": 6,
+            "width": 27,
+            "height": 10,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        },
+        {
+          "element_id": "SWG-L-02",
+          "name": "Backstage",
+          "element_type": "BACKSTAGE",
+          "ticketable": false,
+          "position": {
+            "x": 60,
+            "y": 6,
+            "width": 18,
+            "height": 10,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        },
+        {
+          "element_id": "SWG-L-03",
+          "name": "Standing Pit S1 - Front",
+          "element_type": "TICKET_SECTION",
+          "ticketable": true,
+          "position": {
+            "x": 15,
+            "y": 22,
+            "width": 64,
+            "height": 25,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE",
+          "section_id": "SEC-SWG-S1",
+          "booking_type": "STANDING"
+        },
+        {
+          "element_id": "SWG-L-04",
+          "name": "Book by Seat - Rear",
+          "element_type": "TICKET_SECTION",
+          "ticketable": true,
+          "position": {
+            "x": 13,
+            "y": 52,
+            "width": 29,
+            "height": 18,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE",
+          "section_id": "SEC-SWG-SEAT",
+          "booking_type": "BOOK_BY_SEAT"
+        },
+        {
+          "element_id": "SWG-L-05",
+          "name": "Book by Quota Q1 - Side",
+          "element_type": "TICKET_SECTION",
+          "ticketable": true,
+          "position": {
+            "x": 46,
+            "y": 52,
+            "width": 32,
+            "height": 18,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE",
+          "section_id": "SEC-SWG-Q1",
+          "booking_type": "BOOK_BY_QUOTA"
+        },
+        {
+          "element_id": "SWG-L-06",
+          "name": "Cross Aisle / Egress",
+          "element_type": "EMERGENCY_ACCESS",
+          "ticketable": false,
+          "position": {
+            "x": 11,
+            "y": 72,
+            "width": 78,
+            "height": 4,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        },
+        {
+          "element_id": "SWG-L-07",
+          "name": "Check-in",
+          "element_type": "CHECK_IN",
+          "ticketable": false,
+          "position": {
+            "x": 13,
+            "y": 80,
+            "width": 15,
+            "height": 9,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        },
+        {
+          "element_id": "SWG-L-08",
+          "name": "Entrance",
+          "element_type": "ENTRY",
+          "ticketable": false,
+          "position": {
+            "x": 33,
+            "y": 80,
+            "width": 15,
+            "height": 9,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        },
+        {
+          "element_id": "SWG-L-09",
+          "name": "Accessible View",
+          "element_type": "ACCESSIBLE_VIEWING",
+          "ticketable": false,
+          "position": {
+            "x": 55,
+            "y": 80,
+            "width": 15,
+            "height": 9,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        },
+        {
+          "element_id": "SWG-L-10",
+          "name": "Exit",
+          "element_type": "EXIT",
+          "ticketable": false,
+          "position": {
+            "x": 78,
+            "y": 80,
+            "width": 15,
+            "height": 9,
+            "unit": "normalized_percent"
+          },
+          "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+        }
+      ],
+      "sections": [
+        {
+          "section_id": "SEC-SWG-S1",
+          "section_code": "STANDING_PIT_S1",
+          "section_name": "Standing Pit S1 - Front",
+          "physical_setup": "STANDING",
+          "booking_type": "STANDING",
+          "seat_assignment": false,
+          "prototype_capacity": 180,
+          "capacity_source": "DUMMY_FOR_TESTING_ONLY"
+        },
+        {
+          "section_id": "SEC-SWG-SEAT",
+          "section_code": "BOOK_BY_SEAT_REAR",
+          "section_name": "Book by Seat - Rear",
+          "physical_setup": "NUMBERED_SEATING",
+          "booking_type": "BOOK_BY_SEAT",
+          "seat_assignment": true,
+          "prototype_capacity": 12,
+          "capacity_source": "12_SAMPLE_SEAT_IDS_IN_BLUEPRINT"
+        },
+        {
+          "section_id": "SEC-SWG-Q1",
+          "section_code": "BOOK_BY_QUOTA_Q1",
+          "section_name": "Book by Quota Q1 - Side",
+          "physical_setup": "RESERVED_UNNUMBERED_AREA",
+          "booking_type": "BOOK_BY_QUOTA",
+          "seat_assignment": false,
+          "prototype_capacity": 60,
+          "capacity_source": "DUMMY_FOR_TESTING_ONLY"
+        }
+      ],
+      "seat_grid_definition": {
+        "rows": [
+          "REAR-ROW-1",
+          "REAR-ROW-2"
+        ],
+        "seat_labels": [
+          "07",
+          "08",
+          "09",
+          "10",
+          "11",
+          "12",
+          "01",
+          "02",
+          "03",
+          "04",
+          "05",
+          "06"
+        ],
+        "seat_count": 12,
+        "note": "12 seat ID pada gambar adalah contoh prototype, bukan kapasitas resmi."
+      }
+    }
+  ],
+  "events": [
+    {
+      "event_id": "EVT-DWT-001",
+      "event_code": "EVT-2026-DWT-001",
+      "event_name": "Bandung Indie Music Day",
+      "description": "Festival musik independen dengan beberapa area standing dan reserved quota.",
+      "venue_id": "VEN-DWT-001",
+      "layout_template_id": "TPL-DWT-EVENT-01",
+      "event_status": "COMPLETED",
+      "start_at": "2026-10-20T17:00:00+07:00",
+      "end_at": "2026-10-20T22:00:00+07:00",
+      "timezone": "Asia/Jakarta",
+      "sales_start_at": "2026-09-20T10:00:00+07:00",
+      "sales_end_at": "2026-10-19T23:59:00+07:00",
+      "published_at": "2026-09-18T10:00:00+07:00",
+      "created_by": "USR-ADM-001",
+      "currency": "IDR",
+      "cancel_reason": null
+    },
+    {
+      "event_id": "EVT-ATR-001",
+      "event_code": "EVT-2026-ATR-001",
+      "event_name": "Bandung Tech & Creative Expo",
+      "description": "Pameran teknologi dan kreativitas dengan tempat duduk bernomor pada Atrium Cibadak.",
+      "venue_id": "VEN-ATR-001",
+      "layout_template_id": "TPL-ATR-CBD-SEAT-01",
+      "event_status": "SALES_OPEN",
+      "start_at": "2026-12-20T10:00:00+07:00",
+      "end_at": "2026-12-20T21:00:00+07:00",
+      "timezone": "Asia/Jakarta",
+      "sales_start_at": "2026-11-01T10:00:00+07:00",
+      "sales_end_at": "2026-12-19T23:59:00+07:00",
+      "published_at": "2026-10-25T10:00:00+07:00",
+      "created_by": "USR-ADM-001",
+      "currency": "IDR",
+      "cancel_reason": null
+    },
+    {
+      "event_id": "EVT-SWG-001",
+      "event_code": "EVT-2026-SWG-001",
+      "event_name": "Sawarga Outdoor Live Fest",
+      "description": "Konser outdoor dengan standing pit di depan, reserved seating di belakang, dan reserved quota di sisi area.",
+      "venue_id": "VEN-SWG-001",
+      "layout_template_id": "TPL-SWG-OPTION-B-01",
+      "event_status": "CANCELLED",
+      "start_at": "2026-12-27T16:00:00+07:00",
+      "end_at": "2026-12-27T22:00:00+07:00",
+      "timezone": "Asia/Jakarta",
+      "sales_start_at": "2026-11-02T10:00:00+07:00",
+      "sales_end_at": "2026-12-26T23:59:00+07:00",
+      "published_at": "2026-10-28T10:00:00+07:00",
+      "created_by": "USR-ADM-001",
+      "currency": "IDR",
+      "cancelled_at": "2026-11-05T16:00:00+07:00",
+      "cancelled_by": "USR-ADM-001",
+      "cancel_reason": "Penyesuaian operasional venue (dummy)."
+    }
+  ],
+  "event_layout_snapshots": [
+    {
+      "snapshot_id": "SNP-DWT-001",
+      "event_id": "EVT-DWT-001",
+      "layout_template_id": "TPL-DWT-EVENT-01",
+      "template_version": "1.0",
+      "snapshot_status": "FROZEN",
+      "snapshot_created_at": "2026-09-20T09:00:00+07:00",
+      "note": "Snapshot dummy konfigurasi saat penjualan dibuka.",
+      "snapshot_payload": {
+        "venue_id": "VEN-DWT-001",
+        "template_code": "DWT-EVENT-TICKETED",
+        "template_name": "Downtown Walk - Konfigurasi Event Bertiket",
+        "version": "1.0",
+        "layout_elements": [
+          {
+            "element_id": "DWT-L-01",
+            "name": "Main Stage",
+            "element_type": "STAGE",
+            "ticketable": false,
+            "position": {
+              "x": 31,
+              "y": 8,
+              "width": 31,
+              "height": 10,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          },
+          {
+            "element_id": "DWT-L-02",
+            "name": "Backstage",
+            "element_type": "BACKSTAGE",
+            "ticketable": false,
+            "position": {
+              "x": 63,
+              "y": 8,
+              "width": 17,
+              "height": 10,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          },
+          {
+            "element_id": "DWT-L-03",
+            "name": "Standing A - Front / General",
+            "element_type": "TICKET_SECTION",
+            "ticketable": true,
+            "position": {
+              "x": 6,
+              "y": 25,
+              "width": 26,
+              "height": 23,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE",
+            "section_id": "SEC-DWT-SA",
+            "booking_type": "STANDING"
+          },
+          {
+            "element_id": "DWT-L-04",
+            "name": "Standing B - General",
+            "element_type": "TICKET_SECTION",
+            "ticketable": true,
+            "position": {
+              "x": 34,
+              "y": 25,
+              "width": 26,
+              "height": 23,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE",
+            "section_id": "SEC-DWT-SB",
+            "booking_type": "STANDING"
+          },
+          {
+            "element_id": "DWT-L-05",
+            "name": "Standing C - Side / Overflow",
+            "element_type": "TICKET_SECTION",
+            "ticketable": true,
+            "position": {
+              "x": 62,
+              "y": 25,
+              "width": 26,
+              "height": 23,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE",
+            "section_id": "SEC-DWT-SC",
+            "booking_type": "STANDING"
+          },
+          {
+            "element_id": "DWT-L-06",
+            "name": "Cross Aisle / Emergency Access",
+            "element_type": "EMERGENCY_ACCESS",
+            "ticketable": false,
+            "position": {
+              "x": 7,
+              "y": 51,
+              "width": 82,
+              "height": 4,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          },
+          {
+            "element_id": "DWT-L-07",
+            "name": "Tenant Area",
+            "element_type": "TENANT_AREA",
+            "ticketable": false,
+            "position": {
+              "x": 6,
+              "y": 63,
+              "width": 19,
+              "height": 14,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE",
+            "note": "Area operasional tenant; tidak dijual sebagai inventory tiket."
+          },
+          {
+            "element_id": "DWT-L-08",
+            "name": "Book by Quota Q1 - Reserved Area",
+            "element_type": "TICKET_SECTION",
+            "ticketable": true,
+            "position": {
+              "x": 27,
+              "y": 63,
+              "width": 19,
+              "height": 14,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE",
+            "section_id": "SEC-DWT-Q1",
+            "booking_type": "BOOK_BY_QUOTA"
+          },
+          {
+            "element_id": "DWT-L-09",
+            "name": "A11Y",
+            "element_type": "ACCESSIBLE_VIEWING",
+            "ticketable": false,
+            "position": {
+              "x": 48,
+              "y": 63,
+              "width": 12,
+              "height": 14,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          },
+          {
+            "element_id": "DWT-L-10",
+            "name": "Check-in",
+            "element_type": "CHECK_IN",
+            "ticketable": false,
+            "position": {
+              "x": 62,
+              "y": 63,
+              "width": 12,
+              "height": 14,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          },
+          {
+            "element_id": "DWT-L-11",
+            "name": "Entry",
+            "element_type": "ENTRY",
+            "ticketable": false,
+            "position": {
+              "x": 76,
+              "y": 63,
+              "width": 10,
+              "height": 14,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          },
+          {
+            "element_id": "DWT-L-12",
+            "name": "Exit",
+            "element_type": "EXIT",
+            "ticketable": false,
+            "position": {
+              "x": 88,
+              "y": 63,
+              "width": 9,
+              "height": 14,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          }
+        ],
+        "sections": [
+          {
+            "section_id": "SEC-DWT-SA",
+            "section_code": "STANDING_A",
+            "section_name": "Standing A",
+            "physical_setup": "STANDING",
+            "booking_type": "STANDING",
+            "seat_assignment": false,
+            "prototype_capacity": 100,
+            "capacity_source": "DUMMY_FOR_TESTING_ONLY"
+          },
+          {
+            "section_id": "SEC-DWT-SB",
+            "section_code": "STANDING_B",
+            "section_name": "Standing B",
+            "physical_setup": "STANDING",
+            "booking_type": "STANDING",
+            "seat_assignment": false,
+            "prototype_capacity": 120,
+            "capacity_source": "DUMMY_FOR_TESTING_ONLY"
+          },
+          {
+            "section_id": "SEC-DWT-SC",
+            "section_code": "STANDING_C",
+            "section_name": "Standing C",
+            "physical_setup": "STANDING",
+            "booking_type": "STANDING",
+            "seat_assignment": false,
+            "prototype_capacity": 75,
+            "capacity_source": "DUMMY_FOR_TESTING_ONLY"
+          },
+          {
+            "section_id": "SEC-DWT-Q1",
+            "section_code": "QUOTA_Q1",
+            "section_name": "Book by Quota Q1",
+            "physical_setup": "RESERVED_UNNUMBERED_AREA",
+            "booking_type": "BOOK_BY_QUOTA",
+            "seat_assignment": false,
+            "prototype_capacity": 50,
+            "capacity_source": "DUMMY_FOR_TESTING_ONLY"
+          }
+        ],
+        "active_booking_types": [
+          "STANDING",
+          "BOOK_BY_QUOTA"
+        ],
+        "non_ticketable_elements": [
+          "Tenant Area",
+          "Main Stage",
+          "Backstage",
+          "Cross Aisle / Emergency Access",
+          "A11Y",
+          "Check-in",
+          "Entry",
+          "Exit"
+        ],
+        "optional_booking_type_note": "Book by Seat hanya digunakan jika kursi event sementara dipasang dan diberi seat ID; tidak aktif pada preset dummy ini."
+      }
+    },
+    {
+      "snapshot_id": "SNP-ATR-001",
+      "event_id": "EVT-ATR-001",
+      "layout_template_id": "TPL-ATR-CBD-SEAT-01",
+      "template_version": "1.0",
+      "snapshot_status": "FROZEN",
+      "snapshot_created_at": "2026-11-01T09:00:00+07:00",
+      "note": "Snapshot dummy konfigurasi saat penjualan dibuka.",
+      "snapshot_payload": {
+        "venue_id": "VEN-ATR-001",
+        "template_code": "ATR-CIBADAK-BOOK-BY-SEAT",
+        "template_name": "Atrium Cibadak - Sample Numbered Seat Map",
+        "version": "1.0",
+        "layout_elements": [
+          {
+            "element_id": "ATR-L-01",
+            "name": "Stage / Screen",
+            "element_type": "STAGE",
+            "ticketable": false,
+            "position": {
+              "x": 25,
+              "y": 7,
+              "width": 25,
+              "height": 10,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          },
+          {
+            "element_id": "ATR-L-02",
+            "name": "Backstage",
+            "element_type": "BACKSTAGE",
+            "ticketable": false,
+            "position": {
+              "x": 56,
+              "y": 7,
+              "width": 16,
+              "height": 10,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          },
+          {
+            "element_id": "ATR-L-03",
+            "name": "Block A - Seat 01-05",
+            "element_type": "TICKET_SECTION",
+            "ticketable": true,
+            "position": {
+              "x": 16,
+              "y": 26,
+              "width": 28,
+              "height": 31,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE",
+            "section_id": "SEC-ATR-A",
+            "booking_type": "BOOK_BY_SEAT"
+          },
+          {
+            "element_id": "ATR-L-04",
+            "name": "Main Aisle",
+            "element_type": "AISLE",
+            "ticketable": false,
+            "position": {
+              "x": 48,
+              "y": 26,
+              "width": 11,
+              "height": 31,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          },
+          {
+            "element_id": "ATR-L-05",
+            "name": "Block B - Seat 06-10",
+            "element_type": "TICKET_SECTION",
+            "ticketable": true,
+            "position": {
+              "x": 61,
+              "y": 26,
+              "width": 27,
+              "height": 31,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE",
+            "section_id": "SEC-ATR-B",
+            "booking_type": "BOOK_BY_SEAT"
+          },
+          {
+            "element_id": "ATR-L-06",
+            "name": "A11Y",
+            "element_type": "ACCESSIBLE_VIEWING",
+            "ticketable": false,
+            "position": {
+              "x": 17,
+              "y": 65,
+              "width": 14,
+              "height": 10,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          },
+          {
+            "element_id": "ATR-L-07",
+            "name": "FOH",
+            "element_type": "FRONT_OF_HOUSE",
+            "ticketable": false,
+            "position": {
+              "x": 33,
+              "y": 65,
+              "width": 14,
+              "height": 10,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          },
+          {
+            "element_id": "ATR-L-08",
+            "name": "Check-in",
+            "element_type": "CHECK_IN",
+            "ticketable": false,
+            "position": {
+              "x": 51,
+              "y": 65,
+              "width": 14,
+              "height": 10,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          },
+          {
+            "element_id": "ATR-L-09",
+            "name": "Exit",
+            "element_type": "EXIT",
+            "ticketable": false,
+            "position": {
+              "x": 69,
+              "y": 65,
+              "width": 14,
+              "height": 10,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          },
+          {
+            "element_id": "ATR-L-10",
+            "name": "Rear Circulation / Egress Lane",
+            "element_type": "EMERGENCY_ACCESS",
+            "ticketable": false,
+            "position": {
+              "x": 19,
+              "y": 78,
+              "width": 66,
+              "height": 4,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          },
+          {
+            "element_id": "ATR-L-11",
+            "name": "Side Aisles",
+            "element_type": "AISLE",
+            "ticketable": false,
+            "position": {
+              "x": 8,
+              "y": 27,
+              "width": 3,
+              "height": 30,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          },
+          {
+            "element_id": "ATR-L-12",
+            "name": "Side Aisles",
+            "element_type": "AISLE",
+            "ticketable": false,
+            "position": {
+              "x": 91,
+              "y": 27,
+              "width": 3,
+              "height": 30,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          }
+        ],
+        "sections": [
+          {
+            "section_id": "SEC-ATR-A",
+            "section_code": "BLOCK_A",
+            "section_name": "Block A",
+            "physical_setup": "NUMBERED_SEATING",
+            "booking_type": "BOOK_BY_SEAT",
+            "seat_label_range": "A01-H05",
+            "prototype_capacity": 40,
+            "capacity_source": "80_SAMPLE_SEAT_IDS_TOTAL_IN_BLUEPRINT"
+          },
+          {
+            "section_id": "SEC-ATR-B",
+            "section_code": "BLOCK_B",
+            "section_name": "Block B",
+            "physical_setup": "NUMBERED_SEATING",
+            "booking_type": "BOOK_BY_SEAT",
+            "seat_label_range": "A06-H10",
+            "prototype_capacity": 40,
+            "capacity_source": "80_SAMPLE_SEAT_IDS_TOTAL_IN_BLUEPRINT"
+          }
+        ],
+        "seat_grid_definition": {
+          "rows": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E",
+            "F",
+            "G",
+            "H"
+          ],
+          "block_a_seat_numbers": [
+            "01",
+            "02",
+            "03",
+            "04",
+            "05"
+          ],
+          "block_b_seat_numbers": [
+            "06",
+            "07",
+            "08",
+            "09",
+            "10"
+          ],
+          "seat_count": 80,
+          "note": "8 row x 10 kursi adalah sample ID untuk prototype, bukan kapasitas resmi atrium."
+        },
+        "active_booking_types": [
+          "BOOK_BY_SEAT"
+        ],
+        "alternative_layouts_not_selected": [
+          "BOOK_BY_QUOTA",
+          "STANDING"
+        ]
+      }
+    },
+    {
+      "snapshot_id": "SNP-SWG-001",
+      "event_id": "EVT-SWG-001",
+      "layout_template_id": "TPL-SWG-OPTION-B-01",
+      "template_version": "1.0",
+      "snapshot_status": "FROZEN",
+      "snapshot_created_at": "2026-11-02T09:00:00+07:00",
+      "note": "Snapshot tetap disimpan untuk audit meskipun event dibatalkan.",
+      "snapshot_payload": {
+        "venue_id": "VEN-SWG-001",
+        "template_code": "SAWARGA-OPTION-B-STANDING-FRONT",
+        "template_name": "Sawarga Courtyard - Opsi B: Standing Pit Lebih Dekat ke Panggung",
+        "version": "1.0",
+        "layout_elements": [
+          {
+            "element_id": "SWG-L-01",
+            "name": "Main Stage",
+            "element_type": "STAGE",
+            "ticketable": false,
+            "position": {
+              "x": 27,
+              "y": 6,
+              "width": 27,
+              "height": 10,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          },
+          {
+            "element_id": "SWG-L-02",
+            "name": "Backstage",
+            "element_type": "BACKSTAGE",
+            "ticketable": false,
+            "position": {
+              "x": 60,
+              "y": 6,
+              "width": 18,
+              "height": 10,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          },
+          {
+            "element_id": "SWG-L-03",
+            "name": "Standing Pit S1 - Front",
+            "element_type": "TICKET_SECTION",
+            "ticketable": true,
+            "position": {
+              "x": 15,
+              "y": 22,
+              "width": 64,
+              "height": 25,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE",
+            "section_id": "SEC-SWG-S1",
+            "booking_type": "STANDING"
+          },
+          {
+            "element_id": "SWG-L-04",
+            "name": "Book by Seat - Rear",
+            "element_type": "TICKET_SECTION",
+            "ticketable": true,
+            "position": {
+              "x": 13,
+              "y": 52,
+              "width": 29,
+              "height": 18,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE",
+            "section_id": "SEC-SWG-SEAT",
+            "booking_type": "BOOK_BY_SEAT"
+          },
+          {
+            "element_id": "SWG-L-05",
+            "name": "Book by Quota Q1 - Side",
+            "element_type": "TICKET_SECTION",
+            "ticketable": true,
+            "position": {
+              "x": 46,
+              "y": 52,
+              "width": 32,
+              "height": 18,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE",
+            "section_id": "SEC-SWG-Q1",
+            "booking_type": "BOOK_BY_QUOTA"
+          },
+          {
+            "element_id": "SWG-L-06",
+            "name": "Cross Aisle / Egress",
+            "element_type": "EMERGENCY_ACCESS",
+            "ticketable": false,
+            "position": {
+              "x": 11,
+              "y": 72,
+              "width": 78,
+              "height": 4,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          },
+          {
+            "element_id": "SWG-L-07",
+            "name": "Check-in",
+            "element_type": "CHECK_IN",
+            "ticketable": false,
+            "position": {
+              "x": 13,
+              "y": 80,
+              "width": 15,
+              "height": 9,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          },
+          {
+            "element_id": "SWG-L-08",
+            "name": "Entrance",
+            "element_type": "ENTRY",
+            "ticketable": false,
+            "position": {
+              "x": 33,
+              "y": 80,
+              "width": 15,
+              "height": 9,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          },
+          {
+            "element_id": "SWG-L-09",
+            "name": "Accessible View",
+            "element_type": "ACCESSIBLE_VIEWING",
+            "ticketable": false,
+            "position": {
+              "x": 55,
+              "y": 80,
+              "width": 15,
+              "height": 9,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          },
+          {
+            "element_id": "SWG-L-10",
+            "name": "Exit",
+            "element_type": "EXIT",
+            "ticketable": false,
+            "position": {
+              "x": 78,
+              "y": 80,
+              "width": 15,
+              "height": 9,
+              "unit": "normalized_percent"
+            },
+            "position_accuracy": "APPROXIMATED_FROM_BLUEPRINT_VISUAL_FOR_PROTOTYPE"
+          }
+        ],
+        "sections": [
+          {
+            "section_id": "SEC-SWG-S1",
+            "section_code": "STANDING_PIT_S1",
+            "section_name": "Standing Pit S1 - Front",
+            "physical_setup": "STANDING",
+            "booking_type": "STANDING",
+            "seat_assignment": false,
+            "prototype_capacity": 180,
+            "capacity_source": "DUMMY_FOR_TESTING_ONLY"
+          },
+          {
+            "section_id": "SEC-SWG-SEAT",
+            "section_code": "BOOK_BY_SEAT_REAR",
+            "section_name": "Book by Seat - Rear",
+            "physical_setup": "NUMBERED_SEATING",
+            "booking_type": "BOOK_BY_SEAT",
+            "seat_assignment": true,
+            "prototype_capacity": 12,
+            "capacity_source": "12_SAMPLE_SEAT_IDS_IN_BLUEPRINT"
+          },
+          {
+            "section_id": "SEC-SWG-Q1",
+            "section_code": "BOOK_BY_QUOTA_Q1",
+            "section_name": "Book by Quota Q1 - Side",
+            "physical_setup": "RESERVED_UNNUMBERED_AREA",
+            "booking_type": "BOOK_BY_QUOTA",
+            "seat_assignment": false,
+            "prototype_capacity": 60,
+            "capacity_source": "DUMMY_FOR_TESTING_ONLY"
+          }
+        ],
+        "seat_grid_definition": {
+          "rows": [
+            "REAR-ROW-1",
+            "REAR-ROW-2"
+          ],
+          "seat_labels": [
+            "07",
+            "08",
+            "09",
+            "10",
+            "11",
+            "12",
+            "01",
+            "02",
+            "03",
+            "04",
+            "05",
+            "06"
+          ],
+          "seat_count": 12,
+          "note": "12 seat ID pada gambar adalah contoh prototype, bukan kapasitas resmi."
+        },
+        "active_booking_types": [
+          "STANDING",
+          "BOOK_BY_SEAT",
+          "BOOK_BY_QUOTA"
+        ]
+      }
+    }
+  ],
+  "event_sections": [
+    {
+      "event_section_id": "EVS-DWT-SA",
+      "event_id": "EVT-DWT-001",
+      "section_id": "SEC-DWT-SA",
+      "section_name": "Standing A",
+      "booking_type": "STANDING",
+      "ticket_category_id": "CAT-DWT-SA",
+      "inventory_status": "ACTIVE",
+      "capacity": 100,
+      "blocked_quantity": 0,
+      "reserved_quantity": 0,
+      "sold_quantity": 2,
+      "available_quantity": 98,
+      "capacity_is_dummy": true
+    },
+    {
+      "event_section_id": "EVS-DWT-SB",
+      "event_id": "EVT-DWT-001",
+      "section_id": "SEC-DWT-SB",
+      "section_name": "Standing B",
+      "booking_type": "STANDING",
+      "ticket_category_id": "CAT-DWT-SB",
+      "inventory_status": "ACTIVE",
+      "capacity": 120,
+      "blocked_quantity": 0,
+      "reserved_quantity": 0,
+      "sold_quantity": 0,
+      "available_quantity": 120,
+      "capacity_is_dummy": true
+    },
+    {
+      "event_section_id": "EVS-DWT-SC",
+      "event_id": "EVT-DWT-001",
+      "section_id": "SEC-DWT-SC",
+      "section_name": "Standing C",
+      "booking_type": "STANDING",
+      "ticket_category_id": "CAT-DWT-SC",
+      "inventory_status": "ACTIVE",
+      "capacity": 75,
+      "blocked_quantity": 0,
+      "reserved_quantity": 0,
+      "sold_quantity": 0,
+      "available_quantity": 75,
+      "capacity_is_dummy": true
+    },
+    {
+      "event_section_id": "EVS-DWT-Q1",
+      "event_id": "EVT-DWT-001",
+      "section_id": "SEC-DWT-Q1",
+      "section_name": "Book by Quota Q1",
+      "booking_type": "BOOK_BY_QUOTA",
+      "ticket_category_id": "CAT-DWT-Q1",
+      "inventory_status": "ACTIVE",
+      "capacity": 50,
+      "blocked_quantity": 0,
+      "reserved_quantity": 0,
+      "sold_quantity": 0,
+      "available_quantity": 50,
+      "capacity_is_dummy": true
+    },
+    {
+      "event_section_id": "EVS-ATR-A",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "section_name": "Block A",
+      "booking_type": "BOOK_BY_SEAT",
+      "ticket_category_id": "CAT-ATR-A",
+      "inventory_status": "ACTIVE",
+      "capacity": 40,
+      "blocked_quantity": 1,
+      "reserved_quantity": 0,
+      "sold_quantity": 2,
+      "available_quantity": 37,
+      "capacity_is_dummy": true
+    },
+    {
+      "event_section_id": "EVS-ATR-B",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "section_name": "Block B",
+      "booking_type": "BOOK_BY_SEAT",
+      "ticket_category_id": "CAT-ATR-B",
+      "inventory_status": "ACTIVE",
+      "capacity": 40,
+      "blocked_quantity": 0,
+      "reserved_quantity": 0,
+      "sold_quantity": 0,
+      "available_quantity": 40,
+      "capacity_is_dummy": true
+    },
+    {
+      "event_section_id": "EVS-SWG-S1",
+      "event_id": "EVT-SWG-001",
+      "section_id": "SEC-SWG-S1",
+      "section_name": "Standing Pit S1 - Front",
+      "booking_type": "STANDING",
+      "ticket_category_id": "CAT-SWG-S1",
+      "inventory_status": "DISABLED_EVENT_CANCELLED",
+      "capacity": 180,
+      "blocked_quantity": 0,
+      "reserved_quantity": 0,
+      "sold_quantity": 0,
+      "cancelled_quantity": 2,
+      "available_quantity": null,
+      "capacity_is_dummy": true
+    },
+    {
+      "event_section_id": "EVS-SWG-SEAT",
+      "event_id": "EVT-SWG-001",
+      "section_id": "SEC-SWG-SEAT",
+      "section_name": "Book by Seat - Rear",
+      "booking_type": "BOOK_BY_SEAT",
+      "ticket_category_id": "CAT-SWG-SEAT",
+      "inventory_status": "DISABLED_EVENT_CANCELLED",
+      "capacity": 12,
+      "blocked_quantity": 0,
+      "reserved_quantity": 0,
+      "sold_quantity": 0,
+      "cancelled_quantity": 0,
+      "available_quantity": null,
+      "capacity_is_dummy": true
+    },
+    {
+      "event_section_id": "EVS-SWG-Q1",
+      "event_id": "EVT-SWG-001",
+      "section_id": "SEC-SWG-Q1",
+      "section_name": "Book by Quota Q1 - Side",
+      "booking_type": "BOOK_BY_QUOTA",
+      "ticket_category_id": "CAT-SWG-Q1",
+      "inventory_status": "DISABLED_EVENT_CANCELLED",
+      "capacity": 60,
+      "blocked_quantity": 0,
+      "reserved_quantity": 0,
+      "sold_quantity": 0,
+      "cancelled_quantity": 1,
+      "available_quantity": null,
+      "capacity_is_dummy": true
+    }
+  ],
+  "ticket_categories": [
+    {
+      "ticket_category_id": "CAT-DWT-SA",
+      "event_id": "EVT-DWT-001",
+      "event_section_id": "EVS-DWT-SA",
+      "category_name": "Standing A - General Front",
+      "price": 150000,
+      "currency": "IDR",
+      "quota": 100,
+      "sale_start_at": "2026-09-20T10:00:00+07:00",
+      "sale_end_at": "2026-10-19T23:59:00+07:00",
+      "status": "CLOSED"
+    },
+    {
+      "ticket_category_id": "CAT-DWT-SB",
+      "event_id": "EVT-DWT-001",
+      "event_section_id": "EVS-DWT-SB",
+      "category_name": "Standing B - General",
+      "price": 125000,
+      "currency": "IDR",
+      "quota": 120,
+      "sale_start_at": "2026-09-20T10:00:00+07:00",
+      "sale_end_at": "2026-10-19T23:59:00+07:00",
+      "status": "CLOSED"
+    },
+    {
+      "ticket_category_id": "CAT-DWT-SC",
+      "event_id": "EVT-DWT-001",
+      "event_section_id": "EVS-DWT-SC",
+      "category_name": "Standing C - Side Overflow",
+      "price": 100000,
+      "currency": "IDR",
+      "quota": 75,
+      "sale_start_at": "2026-09-20T10:00:00+07:00",
+      "sale_end_at": "2026-10-19T23:59:00+07:00",
+      "status": "CLOSED"
+    },
+    {
+      "ticket_category_id": "CAT-DWT-Q1",
+      "event_id": "EVT-DWT-001",
+      "event_section_id": "EVS-DWT-Q1",
+      "category_name": "Reserved Quota Q1",
+      "price": 180000,
+      "currency": "IDR",
+      "quota": 50,
+      "sale_start_at": "2026-09-20T10:00:00+07:00",
+      "sale_end_at": "2026-10-19T23:59:00+07:00",
+      "status": "CLOSED"
+    },
+    {
+      "ticket_category_id": "CAT-ATR-A",
+      "event_id": "EVT-ATR-001",
+      "event_section_id": "EVS-ATR-A",
+      "category_name": "Premium Seat - Block A",
+      "price": 350000,
+      "currency": "IDR",
+      "quota": 40,
+      "sale_start_at": "2026-11-01T10:00:00+07:00",
+      "sale_end_at": "2026-12-19T23:59:00+07:00",
+      "status": "ON_SALE"
+    },
+    {
+      "ticket_category_id": "CAT-ATR-B",
+      "event_id": "EVT-ATR-001",
+      "event_section_id": "EVS-ATR-B",
+      "category_name": "Regular Seat - Block B",
+      "price": 250000,
+      "currency": "IDR",
+      "quota": 40,
+      "sale_start_at": "2026-11-01T10:00:00+07:00",
+      "sale_end_at": "2026-12-19T23:59:00+07:00",
+      "status": "ON_SALE"
+    },
+    {
+      "ticket_category_id": "CAT-SWG-S1",
+      "event_id": "EVT-SWG-001",
+      "event_section_id": "EVS-SWG-S1",
+      "category_name": "Standing Pit S1",
+      "price": 200000,
+      "currency": "IDR",
+      "quota": 180,
+      "sale_start_at": "2026-11-02T10:00:00+07:00",
+      "sale_end_at": "2026-12-26T23:59:00+07:00",
+      "status": "CANCELLED"
+    },
+    {
+      "ticket_category_id": "CAT-SWG-SEAT",
+      "event_id": "EVT-SWG-001",
+      "event_section_id": "EVS-SWG-SEAT",
+      "category_name": "Rear Seat",
+      "price": 300000,
+      "currency": "IDR",
+      "quota": 12,
+      "sale_start_at": "2026-11-02T10:00:00+07:00",
+      "sale_end_at": "2026-12-26T23:59:00+07:00",
+      "status": "CANCELLED"
+    },
+    {
+      "ticket_category_id": "CAT-SWG-Q1",
+      "event_id": "EVT-SWG-001",
+      "event_section_id": "EVS-SWG-Q1",
+      "category_name": "Reserved Quota Side Q1",
+      "price": 250000,
+      "currency": "IDR",
+      "quota": 60,
+      "sale_start_at": "2026-11-02T10:00:00+07:00",
+      "sale_end_at": "2026-12-26T23:59:00+07:00",
+      "status": "CANCELLED"
+    }
+  ],
+  "event_seats": [
+    {
+      "event_seat_id": "ATR-A-01",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "A",
+      "seat_number": "01",
+      "seat_label": "A01",
+      "position": {
+        "x": 28.0,
+        "y": 30.0,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-A-02",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "A",
+      "seat_number": "02",
+      "seat_label": "A02",
+      "position": {
+        "x": 31.4,
+        "y": 30.0,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-A-03",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "A",
+      "seat_number": "03",
+      "seat_label": "A03",
+      "position": {
+        "x": 34.8,
+        "y": 30.0,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-A-04",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "A",
+      "seat_number": "04",
+      "seat_label": "A04",
+      "position": {
+        "x": 38.2,
+        "y": 30.0,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-A-05",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "A",
+      "seat_number": "05",
+      "seat_label": "A05",
+      "position": {
+        "x": 41.6,
+        "y": 30.0,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-A-06",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "A",
+      "seat_number": "06",
+      "seat_label": "A06",
+      "position": {
+        "x": 62.0,
+        "y": 30.0,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-A-07",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "A",
+      "seat_number": "07",
+      "seat_label": "A07",
+      "position": {
+        "x": 65.4,
+        "y": 30.0,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-A-08",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "A",
+      "seat_number": "08",
+      "seat_label": "A08",
+      "position": {
+        "x": 68.8,
+        "y": 30.0,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-A-09",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "A",
+      "seat_number": "09",
+      "seat_label": "A09",
+      "position": {
+        "x": 72.2,
+        "y": 30.0,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-A-10",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "A",
+      "seat_number": "10",
+      "seat_label": "A10",
+      "position": {
+        "x": 75.6,
+        "y": 30.0,
+        "unit": "normalized_percent"
+      },
+      "status": "BLOCKED",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": "Reserved for technical camera position (dummy)"
+    },
+    {
+      "event_seat_id": "ATR-B-01",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "B",
+      "seat_number": "01",
+      "seat_label": "B01",
+      "position": {
+        "x": 28.0,
+        "y": 33.3,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-B-02",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "B",
+      "seat_number": "02",
+      "seat_label": "B02",
+      "position": {
+        "x": 31.4,
+        "y": 33.3,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-B-03",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "B",
+      "seat_number": "03",
+      "seat_label": "B03",
+      "position": {
+        "x": 34.8,
+        "y": 33.3,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-B-04",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "B",
+      "seat_number": "04",
+      "seat_label": "B04",
+      "position": {
+        "x": 38.2,
+        "y": 33.3,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-B-05",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "B",
+      "seat_number": "05",
+      "seat_label": "B05",
+      "position": {
+        "x": 41.6,
+        "y": 33.3,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-B-06",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "B",
+      "seat_number": "06",
+      "seat_label": "B06",
+      "position": {
+        "x": 62.0,
+        "y": 33.3,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-B-07",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "B",
+      "seat_number": "07",
+      "seat_label": "B07",
+      "position": {
+        "x": 65.4,
+        "y": 33.3,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-B-08",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "B",
+      "seat_number": "08",
+      "seat_label": "B08",
+      "position": {
+        "x": 68.8,
+        "y": 33.3,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-B-09",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "B",
+      "seat_number": "09",
+      "seat_label": "B09",
+      "position": {
+        "x": 72.2,
+        "y": 33.3,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-B-10",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "B",
+      "seat_number": "10",
+      "seat_label": "B10",
+      "position": {
+        "x": 75.6,
+        "y": 33.3,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-C-01",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "C",
+      "seat_number": "01",
+      "seat_label": "C01",
+      "position": {
+        "x": 28.0,
+        "y": 36.6,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-C-02",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "C",
+      "seat_number": "02",
+      "seat_label": "C02",
+      "position": {
+        "x": 31.4,
+        "y": 36.6,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-C-03",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "C",
+      "seat_number": "03",
+      "seat_label": "C03",
+      "position": {
+        "x": 34.8,
+        "y": 36.6,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-C-04",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "C",
+      "seat_number": "04",
+      "seat_label": "C04",
+      "position": {
+        "x": 38.2,
+        "y": 36.6,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-C-05",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "C",
+      "seat_number": "05",
+      "seat_label": "C05",
+      "position": {
+        "x": 41.6,
+        "y": 36.6,
+        "unit": "normalized_percent"
+      },
+      "status": "SOLD",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": "ORD-ATR-001",
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-C-06",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "C",
+      "seat_number": "06",
+      "seat_label": "C06",
+      "position": {
+        "x": 62.0,
+        "y": 36.6,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-C-07",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "C",
+      "seat_number": "07",
+      "seat_label": "C07",
+      "position": {
+        "x": 65.4,
+        "y": 36.6,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-C-08",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "C",
+      "seat_number": "08",
+      "seat_label": "C08",
+      "position": {
+        "x": 68.8,
+        "y": 36.6,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-C-09",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "C",
+      "seat_number": "09",
+      "seat_label": "C09",
+      "position": {
+        "x": 72.2,
+        "y": 36.6,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-C-10",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "C",
+      "seat_number": "10",
+      "seat_label": "C10",
+      "position": {
+        "x": 75.6,
+        "y": 36.6,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-D-01",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "D",
+      "seat_number": "01",
+      "seat_label": "D01",
+      "position": {
+        "x": 28.0,
+        "y": 39.9,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-D-02",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "D",
+      "seat_number": "02",
+      "seat_label": "D02",
+      "position": {
+        "x": 31.4,
+        "y": 39.9,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-D-03",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "D",
+      "seat_number": "03",
+      "seat_label": "D03",
+      "position": {
+        "x": 34.8,
+        "y": 39.9,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-D-04",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "D",
+      "seat_number": "04",
+      "seat_label": "D04",
+      "position": {
+        "x": 38.2,
+        "y": 39.9,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-D-05",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "D",
+      "seat_number": "05",
+      "seat_label": "D05",
+      "position": {
+        "x": 41.6,
+        "y": 39.9,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-D-06",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "D",
+      "seat_number": "06",
+      "seat_label": "D06",
+      "position": {
+        "x": 62.0,
+        "y": 39.9,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-D-07",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "D",
+      "seat_number": "07",
+      "seat_label": "D07",
+      "position": {
+        "x": 65.4,
+        "y": 39.9,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-D-08",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "D",
+      "seat_number": "08",
+      "seat_label": "D08",
+      "position": {
+        "x": 68.8,
+        "y": 39.9,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-D-09",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "D",
+      "seat_number": "09",
+      "seat_label": "D09",
+      "position": {
+        "x": 72.2,
+        "y": 39.9,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-D-10",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "D",
+      "seat_number": "10",
+      "seat_label": "D10",
+      "position": {
+        "x": 75.6,
+        "y": 39.9,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-E-01",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "E",
+      "seat_number": "01",
+      "seat_label": "E01",
+      "position": {
+        "x": 28.0,
+        "y": 43.2,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-E-02",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "E",
+      "seat_number": "02",
+      "seat_label": "E02",
+      "position": {
+        "x": 31.4,
+        "y": 43.2,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-E-03",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "E",
+      "seat_number": "03",
+      "seat_label": "E03",
+      "position": {
+        "x": 34.8,
+        "y": 43.2,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-E-04",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "E",
+      "seat_number": "04",
+      "seat_label": "E04",
+      "position": {
+        "x": 38.2,
+        "y": 43.2,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-E-05",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "E",
+      "seat_number": "05",
+      "seat_label": "E05",
+      "position": {
+        "x": 41.6,
+        "y": 43.2,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-E-06",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "E",
+      "seat_number": "06",
+      "seat_label": "E06",
+      "position": {
+        "x": 62.0,
+        "y": 43.2,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-E-07",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "E",
+      "seat_number": "07",
+      "seat_label": "E07",
+      "position": {
+        "x": 65.4,
+        "y": 43.2,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-E-08",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "E",
+      "seat_number": "08",
+      "seat_label": "E08",
+      "position": {
+        "x": 68.8,
+        "y": 43.2,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-E-09",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "E",
+      "seat_number": "09",
+      "seat_label": "E09",
+      "position": {
+        "x": 72.2,
+        "y": 43.2,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-E-10",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "E",
+      "seat_number": "10",
+      "seat_label": "E10",
+      "position": {
+        "x": 75.6,
+        "y": 43.2,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-F-01",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "F",
+      "seat_number": "01",
+      "seat_label": "F01",
+      "position": {
+        "x": 28.0,
+        "y": 46.5,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-F-02",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "F",
+      "seat_number": "02",
+      "seat_label": "F02",
+      "position": {
+        "x": 31.4,
+        "y": 46.5,
+        "unit": "normalized_percent"
+      },
+      "status": "SOLD",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": "ORD-ATR-001",
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-F-03",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "F",
+      "seat_number": "03",
+      "seat_label": "F03",
+      "position": {
+        "x": 34.8,
+        "y": 46.5,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-F-04",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "F",
+      "seat_number": "04",
+      "seat_label": "F04",
+      "position": {
+        "x": 38.2,
+        "y": 46.5,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-F-05",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "F",
+      "seat_number": "05",
+      "seat_label": "F05",
+      "position": {
+        "x": 41.6,
+        "y": 46.5,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-F-06",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "F",
+      "seat_number": "06",
+      "seat_label": "F06",
+      "position": {
+        "x": 62.0,
+        "y": 46.5,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-F-07",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "F",
+      "seat_number": "07",
+      "seat_label": "F07",
+      "position": {
+        "x": 65.4,
+        "y": 46.5,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-F-08",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "F",
+      "seat_number": "08",
+      "seat_label": "F08",
+      "position": {
+        "x": 68.8,
+        "y": 46.5,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-F-09",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "F",
+      "seat_number": "09",
+      "seat_label": "F09",
+      "position": {
+        "x": 72.2,
+        "y": 46.5,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-F-10",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "F",
+      "seat_number": "10",
+      "seat_label": "F10",
+      "position": {
+        "x": 75.6,
+        "y": 46.5,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-G-01",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "G",
+      "seat_number": "01",
+      "seat_label": "G01",
+      "position": {
+        "x": 28.0,
+        "y": 49.8,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-G-02",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "G",
+      "seat_number": "02",
+      "seat_label": "G02",
+      "position": {
+        "x": 31.4,
+        "y": 49.8,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-G-03",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "G",
+      "seat_number": "03",
+      "seat_label": "G03",
+      "position": {
+        "x": 34.8,
+        "y": 49.8,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-G-04",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "G",
+      "seat_number": "04",
+      "seat_label": "G04",
+      "position": {
+        "x": 38.2,
+        "y": 49.8,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-G-05",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "G",
+      "seat_number": "05",
+      "seat_label": "G05",
+      "position": {
+        "x": 41.6,
+        "y": 49.8,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-G-06",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "G",
+      "seat_number": "06",
+      "seat_label": "G06",
+      "position": {
+        "x": 62.0,
+        "y": 49.8,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-G-07",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "G",
+      "seat_number": "07",
+      "seat_label": "G07",
+      "position": {
+        "x": 65.4,
+        "y": 49.8,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-G-08",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "G",
+      "seat_number": "08",
+      "seat_label": "G08",
+      "position": {
+        "x": 68.8,
+        "y": 49.8,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-G-09",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "G",
+      "seat_number": "09",
+      "seat_label": "G09",
+      "position": {
+        "x": 72.2,
+        "y": 49.8,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-G-10",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "G",
+      "seat_number": "10",
+      "seat_label": "G10",
+      "position": {
+        "x": 75.6,
+        "y": 49.8,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-H-01",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "H",
+      "seat_number": "01",
+      "seat_label": "H01",
+      "position": {
+        "x": 28.0,
+        "y": 53.1,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-H-02",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "H",
+      "seat_number": "02",
+      "seat_label": "H02",
+      "position": {
+        "x": 31.4,
+        "y": 53.1,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-H-03",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "H",
+      "seat_number": "03",
+      "seat_label": "H03",
+      "position": {
+        "x": 34.8,
+        "y": 53.1,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-H-04",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "H",
+      "seat_number": "04",
+      "seat_label": "H04",
+      "position": {
+        "x": 38.2,
+        "y": 53.1,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-H-05",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-A",
+      "block_code": "BLOCK_A",
+      "row_label": "H",
+      "seat_number": "05",
+      "seat_label": "H05",
+      "position": {
+        "x": 41.6,
+        "y": 53.1,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-H-06",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "H",
+      "seat_number": "06",
+      "seat_label": "H06",
+      "position": {
+        "x": 62.0,
+        "y": 53.1,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-H-07",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "H",
+      "seat_number": "07",
+      "seat_label": "H07",
+      "position": {
+        "x": 65.4,
+        "y": 53.1,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-H-08",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "H",
+      "seat_number": "08",
+      "seat_label": "H08",
+      "position": {
+        "x": 68.8,
+        "y": 53.1,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-H-09",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "H",
+      "seat_number": "09",
+      "seat_label": "H09",
+      "position": {
+        "x": 72.2,
+        "y": 53.1,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "ATR-H-10",
+      "event_id": "EVT-ATR-001",
+      "section_id": "SEC-ATR-B",
+      "block_code": "BLOCK_B",
+      "row_label": "H",
+      "seat_number": "10",
+      "seat_label": "H10",
+      "position": {
+        "x": 75.6,
+        "y": 53.1,
+        "unit": "normalized_percent"
+      },
+      "status": "AVAILABLE",
+      "status_source": "DUMMY_SEED_DATA",
+      "current_order_id": null,
+      "blocked_reason": null
+    },
+    {
+      "event_seat_id": "SWG-SEAT-07",
+      "event_id": "EVT-SWG-001",
+      "section_id": "SEC-SWG-SEAT",
+      "row_label": "REAR-ROW-1",
+      "seat_number": "07",
+      "seat_label": "07",
+      "position": {
+        "x": 22.0,
+        "y": 57,
+        "unit": "normalized_percent"
+      },
+      "status": "DISABLED_EVENT_CANCELLED",
+      "status_source": "EVENT_CANCELLED"
+    },
+    {
+      "event_seat_id": "SWG-SEAT-08",
+      "event_id": "EVT-SWG-001",
+      "section_id": "SEC-SWG-SEAT",
+      "row_label": "REAR-ROW-1",
+      "seat_number": "08",
+      "seat_label": "08",
+      "position": {
+        "x": 26.1,
+        "y": 57,
+        "unit": "normalized_percent"
+      },
+      "status": "DISABLED_EVENT_CANCELLED",
+      "status_source": "EVENT_CANCELLED"
+    },
+    {
+      "event_seat_id": "SWG-SEAT-09",
+      "event_id": "EVT-SWG-001",
+      "section_id": "SEC-SWG-SEAT",
+      "row_label": "REAR-ROW-1",
+      "seat_number": "09",
+      "seat_label": "09",
+      "position": {
+        "x": 30.2,
+        "y": 57,
+        "unit": "normalized_percent"
+      },
+      "status": "DISABLED_EVENT_CANCELLED",
+      "status_source": "EVENT_CANCELLED"
+    },
+    {
+      "event_seat_id": "SWG-SEAT-10",
+      "event_id": "EVT-SWG-001",
+      "section_id": "SEC-SWG-SEAT",
+      "row_label": "REAR-ROW-1",
+      "seat_number": "10",
+      "seat_label": "10",
+      "position": {
+        "x": 34.3,
+        "y": 57,
+        "unit": "normalized_percent"
+      },
+      "status": "DISABLED_EVENT_CANCELLED",
+      "status_source": "EVENT_CANCELLED"
+    },
+    {
+      "event_seat_id": "SWG-SEAT-11",
+      "event_id": "EVT-SWG-001",
+      "section_id": "SEC-SWG-SEAT",
+      "row_label": "REAR-ROW-1",
+      "seat_number": "11",
+      "seat_label": "11",
+      "position": {
+        "x": 38.4,
+        "y": 57,
+        "unit": "normalized_percent"
+      },
+      "status": "DISABLED_EVENT_CANCELLED",
+      "status_source": "EVENT_CANCELLED"
+    },
+    {
+      "event_seat_id": "SWG-SEAT-12",
+      "event_id": "EVT-SWG-001",
+      "section_id": "SEC-SWG-SEAT",
+      "row_label": "REAR-ROW-1",
+      "seat_number": "12",
+      "seat_label": "12",
+      "position": {
+        "x": 42.5,
+        "y": 57,
+        "unit": "normalized_percent"
+      },
+      "status": "DISABLED_EVENT_CANCELLED",
+      "status_source": "EVENT_CANCELLED"
+    },
+    {
+      "event_seat_id": "SWG-SEAT-01",
+      "event_id": "EVT-SWG-001",
+      "section_id": "SEC-SWG-SEAT",
+      "row_label": "REAR-ROW-2",
+      "seat_number": "01",
+      "seat_label": "01",
+      "position": {
+        "x": 22.0,
+        "y": 64,
+        "unit": "normalized_percent"
+      },
+      "status": "DISABLED_EVENT_CANCELLED",
+      "status_source": "EVENT_CANCELLED"
+    },
+    {
+      "event_seat_id": "SWG-SEAT-02",
+      "event_id": "EVT-SWG-001",
+      "section_id": "SEC-SWG-SEAT",
+      "row_label": "REAR-ROW-2",
+      "seat_number": "02",
+      "seat_label": "02",
+      "position": {
+        "x": 26.1,
+        "y": 64,
+        "unit": "normalized_percent"
+      },
+      "status": "DISABLED_EVENT_CANCELLED",
+      "status_source": "EVENT_CANCELLED"
+    },
+    {
+      "event_seat_id": "SWG-SEAT-03",
+      "event_id": "EVT-SWG-001",
+      "section_id": "SEC-SWG-SEAT",
+      "row_label": "REAR-ROW-2",
+      "seat_number": "03",
+      "seat_label": "03",
+      "position": {
+        "x": 30.2,
+        "y": 64,
+        "unit": "normalized_percent"
+      },
+      "status": "DISABLED_EVENT_CANCELLED",
+      "status_source": "EVENT_CANCELLED"
+    },
+    {
+      "event_seat_id": "SWG-SEAT-04",
+      "event_id": "EVT-SWG-001",
+      "section_id": "SEC-SWG-SEAT",
+      "row_label": "REAR-ROW-2",
+      "seat_number": "04",
+      "seat_label": "04",
+      "position": {
+        "x": 34.3,
+        "y": 64,
+        "unit": "normalized_percent"
+      },
+      "status": "DISABLED_EVENT_CANCELLED",
+      "status_source": "EVENT_CANCELLED"
+    },
+    {
+      "event_seat_id": "SWG-SEAT-05",
+      "event_id": "EVT-SWG-001",
+      "section_id": "SEC-SWG-SEAT",
+      "row_label": "REAR-ROW-2",
+      "seat_number": "05",
+      "seat_label": "05",
+      "position": {
+        "x": 38.4,
+        "y": 64,
+        "unit": "normalized_percent"
+      },
+      "status": "DISABLED_EVENT_CANCELLED",
+      "status_source": "EVENT_CANCELLED"
+    },
+    {
+      "event_seat_id": "SWG-SEAT-06",
+      "event_id": "EVT-SWG-001",
+      "section_id": "SEC-SWG-SEAT",
+      "row_label": "REAR-ROW-2",
+      "seat_number": "06",
+      "seat_label": "06",
+      "position": {
+        "x": 42.5,
+        "y": 64,
+        "unit": "normalized_percent"
+      },
+      "status": "DISABLED_EVENT_CANCELLED",
+      "status_source": "EVENT_CANCELLED"
+    }
+  ],
+  "seat_blocks": [
+    {
+      "seat_block_id": "BLK-ATR-001",
+      "event_id": "EVT-ATR-001",
+      "event_seat_id": "ATR-A-10",
+      "reason": "Reserved for technical camera position (dummy)",
+      "blocked_by": "USR-ADM-001",
+      "blocked_at": "2026-11-01T09:15:00+07:00",
+      "status": "ACTIVE"
+    }
+  ],
+  "queue_entries": [
+    {
+      "queue_entry_id": "QUE-ATR-001",
+      "event_id": "EVT-ATR-001",
+      "user_id": "USR-CUS-004",
+      "queue_number": 18,
+      "queue_token": "QTK-ATR-DEMO-001",
+      "entered_at": "2026-11-06T11:55:00+07:00",
+      "status": "WAITING",
+      "served_at": null,
+      "note": "Dummy queue entry untuk simulasi FIFO per event."
+    }
+  ],
+  "booking_holds": [
+    {
+      "hold_id": "HLD-ATR-OLD-001",
+      "event_id": "EVT-ATR-001",
+      "user_id": "USR-CUS-004",
+      "order_id": null,
+      "event_seat_ids": [
+        "ATR-A-03"
+      ],
+      "section_id": "SEC-ATR-A",
+      "quantity": 1,
+      "hold_started_at": "2026-11-06T10:00:00+07:00",
+      "reserved_until": "2026-11-06T10:10:00+07:00",
+      "status": "RELEASED_EXPIRED",
+      "released_at": "2026-11-06T10:10:05+07:00",
+      "release_reason": "HOLD_TIMEOUT_AFTER_PAYMENT_STATUS_CHECK"
+    }
+  ],
+  "orders": [
+    {
+      "order_id": "ORD-DWT-001",
+      "order_code": "DWT-2026-0001",
+      "event_id": "EVT-DWT-001",
+      "user_id": "USR-CUS-001",
+      "buyer_snapshot": {
+        "full_name": "Nadia Putri",
+        "email": "nadia.demo@example.test",
+        "phone_number": "+628110000101"
+      },
+      "order_status": "PAID",
+      "quantity": 2,
+      "subtotal": 300000,
+      "discount_amount": 0,
+      "admin_fee": 0,
+      "total_amount": 300000,
+      "currency": "IDR",
+      "created_at": "2026-10-10T10:00:00+07:00",
+      "paid_at": "2026-10-10T10:02:30+07:00",
+      "cancelled_at": null
+    },
+    {
+      "order_id": "ORD-ATR-001",
+      "order_code": "ATR-2026-0001",
+      "event_id": "EVT-ATR-001",
+      "user_id": "USR-CUS-002",
+      "buyer_snapshot": {
+        "full_name": "Rafi Pratama",
+        "email": "rafi.demo@example.test",
+        "phone_number": "+628110000102"
+      },
+      "order_status": "PAID",
+      "quantity": 2,
+      "subtotal": 700000,
+      "discount_amount": 0,
+      "admin_fee": 0,
+      "total_amount": 700000,
+      "currency": "IDR",
+      "created_at": "2026-11-03T13:00:00+07:00",
+      "paid_at": "2026-11-03T13:03:15+07:00",
+      "cancelled_at": null
+    },
+    {
+      "order_id": "ORD-SWG-001",
+      "order_code": "SWG-2026-0001",
+      "event_id": "EVT-SWG-001",
+      "user_id": "USR-CUS-003",
+      "buyer_snapshot": {
+        "full_name": "Dina Maharani",
+        "email": "dina.demo@example.test",
+        "phone_number": "+628110000103"
+      },
+      "order_status": "CANCELLED",
+      "cancellation_reason": "EVENT_CANCELLED_BY_ADMIN",
+      "quantity": 2,
+      "subtotal": 400000,
+      "discount_amount": 0,
+      "admin_fee": 0,
+      "total_amount": 400000,
+      "currency": "IDR",
+      "created_at": "2026-11-03T14:00:00+07:00",
+      "paid_at": "2026-11-03T14:02:00+07:00",
+      "cancelled_at": "2026-11-05T16:00:00+07:00"
+    },
+    {
+      "order_id": "ORD-SWG-002",
+      "order_code": "SWG-2026-0002",
+      "event_id": "EVT-SWG-001",
+      "user_id": "USR-CUS-004",
+      "buyer_snapshot": {
+        "full_name": "Bima Saputra",
+        "email": "bima.demo@example.test",
+        "phone_number": "+628110000104"
+      },
+      "order_status": "CANCELLED",
+      "cancellation_reason": "EVENT_CANCELLED_BY_ADMIN",
+      "quantity": 1,
+      "subtotal": 250000,
+      "discount_amount": 0,
+      "admin_fee": 0,
+      "total_amount": 250000,
+      "currency": "IDR",
+      "created_at": "2026-11-04T15:00:00+07:00",
+      "paid_at": "2026-11-04T15:03:00+07:00",
+      "cancelled_at": "2026-11-05T16:00:00+07:00"
+    }
+  ],
+  "order_items": [
+    {
+      "order_item_id": "OI-DWT-001",
+      "order_id": "ORD-DWT-001",
+      "event_section_id": "EVS-DWT-SA",
+      "ticket_category_id": "CAT-DWT-SA",
+      "event_seat_id": null,
+      "quantity": 2,
+      "unit_price": 150000,
+      "line_total": 300000
+    },
+    {
+      "order_item_id": "OI-ATR-001",
+      "order_id": "ORD-ATR-001",
+      "event_section_id": "EVS-ATR-A",
+      "ticket_category_id": "CAT-ATR-A",
+      "event_seat_id": "ATR-C-05",
+      "quantity": 1,
+      "unit_price": 350000,
+      "line_total": 350000
+    },
+    {
+      "order_item_id": "OI-ATR-002",
+      "order_id": "ORD-ATR-001",
+      "event_section_id": "EVS-ATR-A",
+      "ticket_category_id": "CAT-ATR-A",
+      "event_seat_id": "ATR-F-02",
+      "quantity": 1,
+      "unit_price": 350000,
+      "line_total": 350000
+    },
+    {
+      "order_item_id": "OI-SWG-001",
+      "order_id": "ORD-SWG-001",
+      "event_section_id": "EVS-SWG-S1",
+      "ticket_category_id": "CAT-SWG-S1",
+      "event_seat_id": null,
+      "quantity": 2,
+      "unit_price": 200000,
+      "line_total": 400000
+    },
+    {
+      "order_item_id": "OI-SWG-002",
+      "order_id": "ORD-SWG-002",
+      "event_section_id": "EVS-SWG-Q1",
+      "ticket_category_id": "CAT-SWG-Q1",
+      "event_seat_id": null,
+      "quantity": 1,
+      "unit_price": 250000,
+      "line_total": 250000
+    }
+  ],
+  "tickets": [
+    {
+      "ticket_id": "TKT-DWT-001",
+      "ticket_code": "DWT-TKT-0001",
+      "order_id": "ORD-DWT-001",
+      "order_item_id": "OI-DWT-001",
+      "event_id": "EVT-DWT-001",
+      "participant_name": "Nadia Putri",
+      "attendee_sequence": 1,
+      "event_section_id": "EVS-DWT-SA",
+      "event_seat_id": null,
+      "ticket_status": "USED",
+      "attendance_status": "CHECKED_IN",
+      "issued_at": "2026-10-10T10:03:00+07:00",
+      "name_last_updated_at": null
+    },
+    {
+      "ticket_id": "TKT-DWT-002",
+      "ticket_code": "DWT-TKT-0002",
+      "order_id": "ORD-DWT-001",
+      "order_item_id": "OI-DWT-001",
+      "event_id": "EVT-DWT-001",
+      "participant_name": "Rafi Pratama",
+      "attendee_sequence": 2,
+      "event_section_id": "EVS-DWT-SA",
+      "event_seat_id": null,
+      "ticket_status": "ISSUED",
+      "attendance_status": "NOT_CHECKED_IN",
+      "issued_at": "2026-10-10T10:03:00+07:00",
+      "name_last_updated_at": null
+    },
+    {
+      "ticket_id": "TKT-ATR-001",
+      "ticket_code": "ATR-TKT-0001",
+      "order_id": "ORD-ATR-001",
+      "order_item_id": "OI-ATR-001",
+      "event_id": "EVT-ATR-001",
+      "participant_name": "Rafi Pratama",
+      "attendee_sequence": 1,
+      "event_section_id": "EVS-ATR-A",
+      "event_seat_id": "ATR-C-05",
+      "ticket_status": "ISSUED",
+      "attendance_status": "NOT_CHECKED_IN",
+      "issued_at": "2026-11-03T13:04:00+07:00",
+      "name_last_updated_at": null
+    },
+    {
+      "ticket_id": "TKT-ATR-002",
+      "ticket_code": "ATR-TKT-0002",
+      "order_id": "ORD-ATR-001",
+      "order_item_id": "OI-ATR-002",
+      "event_id": "EVT-ATR-001",
+      "participant_name": "Dina Maharani",
+      "attendee_sequence": 2,
+      "event_section_id": "EVS-ATR-A",
+      "event_seat_id": "ATR-F-02",
+      "ticket_status": "ISSUED",
+      "attendance_status": "NOT_CHECKED_IN",
+      "issued_at": "2026-11-03T13:04:00+07:00",
+      "name_last_updated_at": null
+    },
+    {
+      "ticket_id": "TKT-SWG-001",
+      "ticket_code": "SWG-TKT-0001",
+      "order_id": "ORD-SWG-001",
+      "order_item_id": "OI-SWG-001",
+      "event_id": "EVT-SWG-001",
+      "participant_name": "Dina Maharani",
+      "attendee_sequence": 1,
+      "event_section_id": "EVS-SWG-S1",
+      "event_seat_id": null,
+      "ticket_status": "CANCELLED",
+      "attendance_status": "NOT_CHECKED_IN",
+      "issued_at": "2026-11-03T14:03:00+07:00",
+      "invalidated_at": "2026-11-05T16:00:00+07:00"
+    },
+    {
+      "ticket_id": "TKT-SWG-002",
+      "ticket_code": "SWG-TKT-0002",
+      "order_id": "ORD-SWG-001",
+      "order_item_id": "OI-SWG-001",
+      "event_id": "EVT-SWG-001",
+      "participant_name": "Nadia Putri",
+      "attendee_sequence": 2,
+      "event_section_id": "EVS-SWG-S1",
+      "event_seat_id": null,
+      "ticket_status": "CANCELLED",
+      "attendance_status": "NOT_CHECKED_IN",
+      "issued_at": "2026-11-03T14:03:00+07:00",
+      "invalidated_at": "2026-11-05T16:00:00+07:00"
+    },
+    {
+      "ticket_id": "TKT-SWG-003",
+      "ticket_code": "SWG-TKT-0003",
+      "order_id": "ORD-SWG-002",
+      "order_item_id": "OI-SWG-002",
+      "event_id": "EVT-SWG-001",
+      "participant_name": "Bima Saputra",
+      "attendee_sequence": 1,
+      "event_section_id": "EVS-SWG-Q1",
+      "event_seat_id": null,
+      "ticket_status": "CANCELLED",
+      "attendance_status": "NOT_CHECKED_IN",
+      "issued_at": "2026-11-04T15:04:00+07:00",
+      "invalidated_at": "2026-11-05T16:00:00+07:00"
+    }
+  ],
+  "payments": [
+    {
+      "payment_id": "PAY-DWT-001",
+      "order_id": "ORD-DWT-001",
+      "provider": "SANDBOX_QRIS",
+      "payment_method": "QRIS",
+      "provider_transaction_id": "SBX-QRIS-DWT-0001",
+      "amount": 300000,
+      "currency": "IDR",
+      "payment_status": "SUCCESS",
+      "initiated_at": "2026-10-10T10:00:30+07:00",
+      "paid_at": "2026-10-10T10:02:30+07:00",
+      "expires_at": "2026-10-10T10:07:30+07:00",
+      "gateway_refund_status": "NOT_APPLICABLE_MANUAL_REFUND"
+    },
+    {
+      "payment_id": "PAY-ATR-001",
+      "order_id": "ORD-ATR-001",
+      "provider": "SANDBOX_QRIS",
+      "payment_method": "QRIS",
+      "provider_transaction_id": "SBX-QRIS-ATR-0001",
+      "amount": 700000,
+      "currency": "IDR",
+      "payment_status": "SUCCESS",
+      "initiated_at": "2026-11-03T13:00:30+07:00",
+      "paid_at": "2026-11-03T13:03:15+07:00",
+      "expires_at": "2026-11-03T13:07:30+07:00",
+      "gateway_refund_status": "NOT_APPLICABLE_MANUAL_REFUND"
+    },
+    {
+      "payment_id": "PAY-SWG-001",
+      "order_id": "ORD-SWG-001",
+      "provider": "SANDBOX_QRIS",
+      "payment_method": "QRIS",
+      "provider_transaction_id": "SBX-QRIS-SWG-0001",
+      "amount": 400000,
+      "currency": "IDR",
+      "payment_status": "SUCCESS",
+      "initiated_at": "2026-11-03T14:00:30+07:00",
+      "paid_at": "2026-11-03T14:02:00+07:00",
+      "expires_at": "2026-11-03T14:07:30+07:00",
+      "gateway_refund_status": "NOT_APPLICABLE_MANUAL_REFUND"
+    },
+    {
+      "payment_id": "PAY-SWG-002",
+      "order_id": "ORD-SWG-002",
+      "provider": "SANDBOX_QRIS",
+      "payment_method": "QRIS",
+      "provider_transaction_id": "SBX-QRIS-SWG-0002",
+      "amount": 250000,
+      "currency": "IDR",
+      "payment_status": "SUCCESS",
+      "initiated_at": "2026-11-04T15:00:30+07:00",
+      "paid_at": "2026-11-04T15:03:00+07:00",
+      "expires_at": "2026-11-04T15:07:30+07:00",
+      "gateway_refund_status": "NOT_APPLICABLE_MANUAL_REFUND"
+    }
+  ],
+  "payment_gateway_callbacks": [
+    {
+      "callback_id": "CB-DWT-001",
+      "payment_id": "PAY-DWT-001",
+      "provider_event_id": "SBX-CB-DWT-0001",
+      "event_type": "PAYMENT_SUCCESS",
+      "received_at": "2026-10-10T10:02:29+07:00",
+      "signature_valid": true,
+      "idempotency_key": "SBX-CB-DWT-0001",
+      "processing_result": "PROCESSED"
+    },
+    {
+      "callback_id": "CB-ATR-001",
+      "payment_id": "PAY-ATR-001",
+      "provider_event_id": "SBX-CB-ATR-0001",
+      "event_type": "PAYMENT_SUCCESS",
+      "received_at": "2026-11-03T13:03:14+07:00",
+      "signature_valid": true,
+      "idempotency_key": "SBX-CB-ATR-0001",
+      "processing_result": "PROCESSED"
+    },
+    {
+      "callback_id": "CB-SWG-001",
+      "payment_id": "PAY-SWG-001",
+      "provider_event_id": "SBX-CB-SWG-0001",
+      "event_type": "PAYMENT_SUCCESS",
+      "received_at": "2026-11-03T14:02:00+07:00",
+      "signature_valid": true,
+      "idempotency_key": "SBX-CB-SWG-0001",
+      "processing_result": "PROCESSED"
+    },
+    {
+      "callback_id": "CB-SWG-002",
+      "payment_id": "PAY-SWG-002",
+      "provider_event_id": "SBX-CB-SWG-0002",
+      "event_type": "PAYMENT_SUCCESS",
+      "received_at": "2026-11-04T15:03:00+07:00",
+      "signature_valid": true,
+      "idempotency_key": "SBX-CB-SWG-0002",
+      "processing_result": "PROCESSED"
+    }
+  ],
+  "e_tickets": [
+    {
+      "e_ticket_id": "ETK-DWT-001",
+      "order_id": "ORD-DWT-001",
+      "event_id": "EVT-DWT-001",
+      "qr_token_hash": "DUMMY_HASH_QR_DWT_001",
+      "qr_payload_version": 1,
+      "issued_at": "2026-10-10T10:03:00+07:00",
+      "ticket_quantity_at_issue": 2,
+      "valid_ticket_count": 2,
+      "successful_scan_count": 1,
+      "max_successful_scan_count": 2,
+      "ticket_status_summary": "PARTIALLY_USED",
+      "delivery_notification_id": "NTF-DWT-TICKET-001"
+    },
+    {
+      "e_ticket_id": "ETK-ATR-001",
+      "order_id": "ORD-ATR-001",
+      "event_id": "EVT-ATR-001",
+      "qr_token_hash": "DUMMY_HASH_QR_ATR_001",
+      "qr_payload_version": 1,
+      "issued_at": "2026-11-03T13:04:00+07:00",
+      "ticket_quantity_at_issue": 2,
+      "valid_ticket_count": 2,
+      "successful_scan_count": 0,
+      "max_successful_scan_count": 2,
+      "ticket_status_summary": "VALID",
+      "delivery_notification_id": "NTF-ATR-TICKET-001"
+    },
+    {
+      "e_ticket_id": "ETK-SWG-001",
+      "order_id": "ORD-SWG-001",
+      "event_id": "EVT-SWG-001",
+      "qr_token_hash": "DUMMY_HASH_QR_SWG_001",
+      "qr_payload_version": 1,
+      "issued_at": "2026-11-03T14:03:00+07:00",
+      "ticket_quantity_at_issue": 2,
+      "valid_ticket_count": 0,
+      "successful_scan_count": 0,
+      "max_successful_scan_count": 0,
+      "ticket_status_summary": "VOID_EVENT_CANCELLED",
+      "invalidated_at": "2026-11-05T16:00:00+07:00"
+    },
+    {
+      "e_ticket_id": "ETK-SWG-002",
+      "order_id": "ORD-SWG-002",
+      "event_id": "EVT-SWG-001",
+      "qr_token_hash": "DUMMY_HASH_QR_SWG_002",
+      "qr_payload_version": 1,
+      "issued_at": "2026-11-04T15:04:00+07:00",
+      "ticket_quantity_at_issue": 1,
+      "valid_ticket_count": 0,
+      "successful_scan_count": 0,
+      "max_successful_scan_count": 0,
+      "ticket_status_summary": "VOID_EVENT_CANCELLED",
+      "invalidated_at": "2026-11-05T16:00:00+07:00"
+    }
+  ],
+  "checkin_records": [
+    {
+      "checkin_record_id": "CHK-DWT-001",
+      "e_ticket_id": "ETK-DWT-001",
+      "order_id": "ORD-DWT-001",
+      "ticket_id": "TKT-DWT-001",
+      "event_id": "EVT-DWT-001",
+      "scan_sequence": 1,
+      "scan_result": "SUCCESS",
+      "scanned_at": "2026-10-20T17:25:00+07:00",
+      "checked_by": "USR-CHK-001",
+      "device_id": "DEVICE-CHECKIN-DEMO-01",
+      "rejection_reason": null
+    }
+  ],
+  "refunds": [
+    {
+      "refund_id": "RFD-ATR-001",
+      "refund_code": "RFD-2026-ATR-0001",
+      "refund_type": "PARTICIPANT_REQUEST",
+      "event_id": "EVT-ATR-001",
+      "order_id": "ORD-ATR-001",
+      "requested_by_user_id": "USR-CUS-002",
+      "ticket_ids": [
+        "TKT-ATR-002"
+      ],
+      "quantity": 1,
+      "refund_amount": 350000,
+      "currency": "IDR",
+      "status": "UNDER_REVIEW",
+      "refund_data_status": "COMPLETE",
+      "approval_required": true,
+      "approval_mode": "ADMIN_REVIEW",
+      "requested_at": "2026-11-05T09:00:00+07:00",
+      "approved_at": null,
+      "rejected_at": null,
+      "processing_started_at": null,
+      "completed_at": null,
+      "refund_destination": {
+        "method": "BANK_TRANSFER",
+        "provider_name": "Bank BCA (dummy)",
+        "account_number": "000123456789",
+        "account_holder_name": "Rafi Pratama",
+        "destination_data_dummy": true
+      },
+      "manual_transfer": {
+        "processed_by": null,
+        "transfer_reference": null,
+        "transfer_date": null,
+        "proof_reference": null,
+        "admin_note": null
+      },
+      "whatsapp_contact": {
+        "contact_available": true,
+        "recipient_phone": "+628110000102",
+        "last_contacted_at": null,
+        "admin_cta": {
+          "action": "OPEN_WHATSAPP_CHAT",
+          "prefilled_template_id": "WAT-REFUND-COMPLETED",
+          "manual_send_required": true
+        }
+      },
+      "target_completion_days": 7,
+      "target_completion_clock_start": "WHEN_REFUND_DESTINATION_DATA_IS_COMPLETE",
+      "target_completion_due_at": "2026-11-12T23:59:00+07:00",
+      "data_completed_at": "2026-11-05T09:00:00+07:00"
+    },
+    {
+      "refund_id": "RFD-SWG-001",
+      "refund_code": "RFD-2026-SWG-0001",
+      "refund_type": "EVENT_CANCELLATION",
+      "event_id": "EVT-SWG-001",
+      "order_id": "ORD-SWG-001",
+      "requested_by_user_id": "USR-CUS-003",
+      "ticket_ids": [
+        "TKT-SWG-001",
+        "TKT-SWG-002"
+      ],
+      "quantity": 2,
+      "refund_amount": 400000,
+      "currency": "IDR",
+      "status": "COMPLETED",
+      "refund_data_status": "COMPLETE",
+      "approval_required": false,
+      "approval_mode": "EVENT_CANCELLATION_NO_PARTICIPANT_APPROVAL",
+      "requested_at": "2026-11-05T16:00:05+07:00",
+      "approved_at": "2026-11-05T16:05:00+07:00",
+      "rejected_at": null,
+      "processing_started_at": "2026-11-06T09:00:00+07:00",
+      "completed_at": "2026-11-06T09:30:00+07:00",
+      "refund_destination": {
+        "method": "E_WALLET",
+        "provider_name": "DANA (dummy)",
+        "account_number": "081234000103",
+        "account_holder_name": "Dina Maharani",
+        "destination_data_dummy": true
+      },
+      "manual_transfer": {
+        "processed_by": "USR-ADM-001",
+        "transfer_reference": "TRF-DUMMY-SWG-0001",
+        "transfer_date": "2026-11-06T09:30:00+07:00",
+        "proof_reference": "DUMMY-PROOF-SWG-0001",
+        "admin_note": "Transfer manual telah dilakukan di luar sistem."
+      },
+      "whatsapp_contact": {
+        "contact_available": true,
+        "recipient_phone": "+628110000103",
+        "last_contacted_at": "2026-11-06T09:35:00+07:00",
+        "admin_cta": {
+          "action": "OPEN_WHATSAPP_CHAT",
+          "prefilled_template_id": "WAT-REFUND-COMPLETED",
+          "manual_send_required": true
+        }
+      },
+      "target_completion_days": 7,
+      "completion_notification_mode": "MANUAL_ADMIN_CLICK",
+      "completion_notification_id": "NTF-SWG-REFUND-DONE-001",
+      "target_completion_clock_start": "WHEN_REFUND_DESTINATION_DATA_IS_COMPLETE",
+      "target_completion_due_at": "2026-11-12T23:59:00+07:00",
+      "data_completed_at": "2026-11-05T17:00:00+07:00"
+    },
+    {
+      "refund_id": "RFD-SWG-002",
+      "refund_code": "RFD-2026-SWG-0002",
+      "refund_type": "EVENT_CANCELLATION",
+      "event_id": "EVT-SWG-001",
+      "order_id": "ORD-SWG-002",
+      "requested_by_user_id": "USR-CUS-004",
+      "ticket_ids": [
+        "TKT-SWG-003"
+      ],
+      "quantity": 1,
+      "refund_amount": 250000,
+      "currency": "IDR",
+      "status": "REQUESTED",
+      "refund_data_status": "NOT_SUBMITTED",
+      "approval_required": false,
+      "approval_mode": "EVENT_CANCELLATION_NO_PARTICIPANT_APPROVAL",
+      "requested_at": "2026-11-05T16:00:05+07:00",
+      "approved_at": null,
+      "rejected_at": null,
+      "processing_started_at": null,
+      "completed_at": null,
+      "refund_destination": null,
+      "missing_destination_fields": [
+        "method",
+        "provider_name",
+        "account_number",
+        "account_holder_name"
+      ],
+      "manual_transfer": {
+        "processed_by": null,
+        "transfer_reference": null,
+        "transfer_date": null,
+        "proof_reference": null,
+        "admin_note": null
+      },
+      "whatsapp_contact": {
+        "contact_available": true,
+        "recipient_phone": "+628110000104",
+        "last_contacted_at": null,
+        "admin_cta": {
+          "action": "OPEN_WHATSAPP_CHAT",
+          "prefilled_template_id": "WAT-REFUND-DATA-NEEDED",
+          "manual_send_required": true
+        }
+      },
+      "target_completion_days": 7,
+      "target_completion_clock_start": "WHEN_REFUND_DESTINATION_DATA_IS_COMPLETE",
+      "target_completion_due_at": null,
+      "data_completed_at": null
+    }
+  ],
+  "refund_status_histories": [
+    {
+      "history_id": "RFH-ATR-001",
+      "refund_id": "RFD-ATR-001",
+      "from_status": null,
+      "to_status": "UNDER_REVIEW",
+      "changed_at": "2026-11-05T09:00:00+07:00",
+      "changed_by": "USR-CUS-002",
+      "reason": "Peserta mengajukan refund dan melengkapi data tujuan."
+    },
+    {
+      "history_id": "RFH-SWG-001",
+      "refund_id": "RFD-SWG-001",
+      "from_status": null,
+      "to_status": "REQUESTED",
+      "changed_at": "2026-11-05T16:00:05+07:00",
+      "changed_by": "SYSTEM",
+      "reason": "Refund dibuat akibat event dibatalkan."
+    },
+    {
+      "history_id": "RFH-SWG-002",
+      "refund_id": "RFD-SWG-001",
+      "from_status": "REQUESTED",
+      "to_status": "APPROVED",
+      "changed_at": "2026-11-05T16:05:00+07:00",
+      "changed_by": "SYSTEM",
+      "reason": "Data tujuan refund telah lengkap; approval peserta tidak diperlukan untuk pembatalan event."
+    },
+    {
+      "history_id": "RFH-SWG-003",
+      "refund_id": "RFD-SWG-001",
+      "from_status": "APPROVED",
+      "to_status": "PROCESSING",
+      "changed_at": "2026-11-06T09:00:00+07:00",
+      "changed_by": "USR-ADM-001",
+      "reason": "Admin mulai melakukan transfer manual."
+    },
+    {
+      "history_id": "RFH-SWG-004",
+      "refund_id": "RFD-SWG-001",
+      "from_status": "PROCESSING",
+      "to_status": "COMPLETED",
+      "changed_at": "2026-11-06T09:30:00+07:00",
+      "changed_by": "USR-ADM-001",
+      "reason": "Admin mencatat transfer manual telah dilakukan."
+    },
+    {
+      "history_id": "RFH-SWG-005",
+      "refund_id": "RFD-SWG-002",
+      "from_status": null,
+      "to_status": "REQUESTED",
+      "changed_at": "2026-11-05T16:00:05+07:00",
+      "changed_by": "SYSTEM",
+      "reason": "Menunggu peserta mengisi data rekening/e-wallet."
+    }
+  ],
+  "refund_admin_actions": [
+    {
+      "action_id": "RFA-ATR-001",
+      "refund_id": "RFD-ATR-001",
+      "action_type": "REVIEW_REQUIRED",
+      "performed_by": "SYSTEM",
+      "performed_at": "2026-11-05T09:00:01+07:00",
+      "result": "WAITING_ADMIN_REVIEW"
+    },
+    {
+      "action_id": "RFA-SWG-001",
+      "refund_id": "RFD-SWG-001",
+      "action_type": "MANUAL_TRANSFER_RECORDED",
+      "performed_by": "USR-ADM-001",
+      "performed_at": "2026-11-06T09:30:00+07:00",
+      "result": "COMPLETED",
+      "note": "Transfer dilakukan melalui kanal bank/e-wallet di luar aplikasi."
+    },
+    {
+      "action_id": "RFA-SWG-002",
+      "refund_id": "RFD-SWG-001",
+      "action_type": "SEND_REFUND_COMPLETED_WHATSAPP",
+      "performed_by": "USR-ADM-001",
+      "performed_at": "2026-11-06T09:35:00+07:00",
+      "result": "SENT",
+      "notification_id": "NTF-SWG-REFUND-DONE-001"
+    }
+  ],
+  "notification_templates": [
+    {
+      "template_id": "WAT-EVENT-CANCELLED",
+      "channel": "WHATSAPP",
+      "template_name": "Pemberitahuan Pembatalan Event dan Instruksi Refund",
+      "trigger_mode": "SYSTEM_TRIGGERED",
+      "active": true,
+      "message": "Mohon maaf, event {{event_name}} pada {{event_date}} dibatalkan. Tiket Anda terdampak pembatalan dan dana akan di-refund. Silakan kunjungi {{website_url}}, masuk ke History Pesanan, lalu isi data metode refund (Transfer Bank atau E-Wallet), nama bank/jenis e-wallet, nomor rekening/nomor e-wallet, dan nama pemilik akun. Proses refund dilakukan manual oleh admin dengan target maksimal 1 minggu setelah data refund lengkap. Terima kasih atas pengertiannya."
+    },
+    {
+      "template_id": "WAT-REFUND-REQUESTED",
+      "channel": "WHATSAPP",
+      "template_name": "Konfirmasi Pengajuan Refund Peserta",
+      "trigger_mode": "SYSTEM_TRIGGERED",
+      "active": true,
+      "message": "Halo {{customer_name}}, pengajuan refund untuk pesanan {{order_code}} telah diterima dan sedang menunggu pemeriksaan admin. Anda dapat melihat perkembangannya melalui History Pesanan."
+    },
+    {
+      "template_id": "WAT-REFUND-DATA-NEEDED",
+      "channel": "WHATSAPP",
+      "template_name": "Permintaan Melengkapi Data Refund",
+      "trigger_mode": "MANUAL_ADMIN_ACTION",
+      "active": true,
+      "message": "Halo {{customer_name}}, data refund untuk pesanan {{order_code}} belum lengkap. Silakan buka website, masuk ke History Pesanan, lalu lengkapi metode refund, nama bank/jenis e-wallet, nomor rekening/nomor e-wallet, dan nama pemilik akun."
+    },
+    {
+      "template_id": "WAT-REFUND-COMPLETED",
+      "channel": "WHATSAPP",
+      "template_name": "Informasi Refund Telah Diproses",
+      "trigger_mode": "MANUAL_ADMIN_ACTION",
+      "active": true,
+      "message": "Halo {{customer_name}}, refund untuk pesanan {{order_code}} telah diproses oleh admin pada {{processed_at}}. Silakan periksa rekening atau e-wallet tujuan Anda. Terima kasih."
+    },
+    {
+      "template_id": "WAT-REFUND-REJECTED",
+      "channel": "WHATSAPP",
+      "template_name": "Informasi Pengajuan Refund Ditolak",
+      "trigger_mode": "SYSTEM_TRIGGERED_AFTER_ADMIN_DECISION",
+      "active": true,
+      "message": "Halo {{customer_name}}, pengajuan refund untuk pesanan {{order_code}} belum dapat disetujui. Alasan: {{rejection_reason}}. Silakan lihat detail pada History Pesanan."
+    },
+    {
+      "template_id": "WAT-EVENT-REMINDER",
+      "channel": "WHATSAPP",
+      "template_name": "Pengingat Event",
+      "trigger_mode": "SCHEDULED",
+      "active": true,
+      "message": "Pengingat: {{event_name}} akan berlangsung pada {{event_date}} di {{venue_name}}. Tunjukkan QR e-ticket pesanan {{order_code}} saat check-in."
+    }
+  ],
+  "notification_logs": [
+    {
+      "notification_id": "NTF-DWT-TICKET-001",
+      "template_id": "WAT-EVENT-REMINDER",
+      "event_id": "EVT-DWT-001",
+      "order_id": "ORD-DWT-001",
+      "refund_id": null,
+      "recipient_user_id": "USR-CUS-001",
+      "recipient_phone": "+628110000101",
+      "channel": "WHATSAPP",
+      "trigger_mode": "SYSTEM_TRIGGERED",
+      "notification_type": "E_TICKET_DELIVERY",
+      "status": "SENT",
+      "sent_at": "2026-10-10T10:03:10+07:00",
+      "sent_by": "SYSTEM",
+      "message_preview": "E-ticket order DWT-2026-0001 dikirim."
+    },
+    {
+      "notification_id": "NTF-ATR-TICKET-001",
+      "template_id": "WAT-EVENT-REMINDER",
+      "event_id": "EVT-ATR-001",
+      "order_id": "ORD-ATR-001",
+      "refund_id": null,
+      "recipient_user_id": "USR-CUS-002",
+      "recipient_phone": "+628110000102",
+      "channel": "WHATSAPP",
+      "trigger_mode": "SYSTEM_TRIGGERED",
+      "notification_type": "E_TICKET_DELIVERY",
+      "status": "DELIVERED",
+      "sent_at": "2026-11-03T13:04:10+07:00",
+      "sent_by": "SYSTEM",
+      "message_preview": "E-ticket order ATR-2026-0001 dikirim."
+    },
+    {
+      "notification_id": "NTF-SWG-CANCEL-001",
+      "template_id": "WAT-EVENT-CANCELLED",
+      "event_id": "EVT-SWG-001",
+      "order_id": "ORD-SWG-001",
+      "refund_id": "RFD-SWG-001",
+      "recipient_user_id": "USR-CUS-003",
+      "recipient_phone": "+628110000103",
+      "channel": "WHATSAPP",
+      "trigger_mode": "SYSTEM_TRIGGERED",
+      "notification_type": "EVENT_CANCELLATION_REFUND_INSTRUCTION",
+      "status": "DELIVERED",
+      "sent_at": "2026-11-05T16:01:00+07:00",
+      "sent_by": "SYSTEM",
+      "message_preview": "Event dibatalkan; peserta diminta mengisi data refund pada History Pesanan."
+    },
+    {
+      "notification_id": "NTF-SWG-CANCEL-002",
+      "template_id": "WAT-EVENT-CANCELLED",
+      "event_id": "EVT-SWG-001",
+      "order_id": "ORD-SWG-002",
+      "refund_id": "RFD-SWG-002",
+      "recipient_user_id": "USR-CUS-004",
+      "recipient_phone": "+628110000104",
+      "channel": "WHATSAPP",
+      "trigger_mode": "SYSTEM_TRIGGERED",
+      "notification_type": "EVENT_CANCELLATION_REFUND_INSTRUCTION",
+      "status": "SENT",
+      "sent_at": "2026-11-05T16:01:05+07:00",
+      "sent_by": "SYSTEM",
+      "message_preview": "Event dibatalkan; peserta diminta mengisi data refund pada History Pesanan."
+    },
+    {
+      "notification_id": "NTF-SWG-REFUND-DONE-001",
+      "template_id": "WAT-REFUND-COMPLETED",
+      "event_id": "EVT-SWG-001",
+      "order_id": "ORD-SWG-001",
+      "refund_id": "RFD-SWG-001",
+      "recipient_user_id": "USR-CUS-003",
+      "recipient_phone": "+628110000103",
+      "channel": "WHATSAPP",
+      "trigger_mode": "MANUAL_ADMIN_ACTION",
+      "notification_type": "REFUND_COMPLETED",
+      "status": "SENT",
+      "sent_at": "2026-11-06T09:35:00+07:00",
+      "sent_by": "USR-ADM-001",
+      "message_preview": "Admin mengirim pesan manual bahwa refund telah diproses."
+    }
+  ],
+  "admin_audit_logs": [
+    {
+      "audit_id": "AUD-001",
+      "actor_user_id": "USR-ADM-001",
+      "action": "EVENT_CANCELLED",
+      "entity_type": "EVENT",
+      "entity_id": "EVT-SWG-001",
+      "occurred_at": "2026-11-05T16:00:00+07:00",
+      "details": {
+        "reason": "Penyesuaian operasional venue (dummy).",
+        "refund_instruction_notification_triggered": true
+      }
+    },
+    {
+      "audit_id": "AUD-002",
+      "actor_user_id": "USR-ADM-001",
+      "action": "REFUND_MARKED_COMPLETED",
+      "entity_type": "REFUND",
+      "entity_id": "RFD-SWG-001",
+      "occurred_at": "2026-11-06T09:30:00+07:00",
+      "details": {
+        "transfer_reference": "TRF-DUMMY-SWG-0001",
+        "transfer_method": "E_WALLET"
+      }
+    },
+    {
+      "audit_id": "AUD-003",
+      "actor_user_id": "USR-ADM-001",
+      "action": "REFUND_COMPLETION_WHATSAPP_SENT",
+      "entity_type": "REFUND",
+      "entity_id": "RFD-SWG-001",
+      "occurred_at": "2026-11-06T09:35:00+07:00",
+      "details": {
+        "notification_id": "NTF-SWG-REFUND-DONE-001",
+        "manual_click": true
+      }
+    }
+  ],
+  "dashboard_demo_snapshot": {
+    "snapshot_at": "2026-11-06T12:20:00+07:00",
+    "event_summary": {
+      "total_events": 3,
+      "completed_events": 1,
+      "sales_open_events": 1,
+      "cancelled_events": 1
+    },
+    "venue_summary": {
+      "total_venues": 3,
+      "active_venues": 3
+    },
+    "refund_summary": {
+      "total_refund_records": 3,
+      "waiting_participant_data": 1,
+      "waiting_admin_review": 1,
+      "processing_or_approved": 0,
+      "completed": 1,
+      "rejected": 0
+    },
+    "checkin_summary": {
+      "successful_scans": 1,
+      "valid_ticket_count_for_completed_event_order": 2
+    },
+    "note": "Angka snapshot merupakan ringkasan dari seed data dummy, bukan data operasional real-time."
+  },
+  "entity_catalog": [
+    {
+      "entity": "venues",
+      "primary_key": "venue_id",
+      "purpose": "Master data venue dan master layout fixed."
+    },
+    {
+      "entity": "layout_templates",
+      "primary_key": "layout_template_id",
+      "foreign_keys": [
+        "venue_id"
+      ],
+      "purpose": "Preset event layout yang telah disediakan; bukan editor denah."
+    },
+    {
+      "entity": "events",
+      "primary_key": "event_id",
+      "foreign_keys": [
+        "venue_id",
+        "layout_template_id",
+        "created_by"
+      ],
+      "purpose": "Event yang menggunakan tepat satu venue."
+    },
+    {
+      "entity": "event_layout_snapshots",
+      "primary_key": "snapshot_id",
+      "foreign_keys": [
+        "event_id",
+        "layout_template_id"
+      ],
+      "purpose": "Snapshot konfigurasi layout ketika penjualan dimulai."
+    },
+    {
+      "entity": "event_sections",
+      "primary_key": "event_section_id",
+      "foreign_keys": [
+        "event_id",
+        "section_id",
+        "ticket_category_id"
+      ],
+      "purpose": "Inventory dan kapasitas per section per event."
+    },
+    {
+      "entity": "event_seats",
+      "primary_key": "event_seat_id",
+      "foreign_keys": [
+        "event_id",
+        "section_id"
+      ],
+      "purpose": "Seat individual hanya untuk booking type BOOK_BY_SEAT."
+    },
+    {
+      "entity": "ticket_categories",
+      "primary_key": "ticket_category_id",
+      "foreign_keys": [
+        "event_id",
+        "event_section_id"
+      ],
+      "purpose": "Kategori, harga, kuota dan periode penjualan yang spesifik event."
+    },
+    {
+      "entity": "orders",
+      "primary_key": "order_id",
+      "foreign_keys": [
+        "event_id",
+        "user_id"
+      ],
+      "purpose": "Header transaksi dan snapshot data pemesan."
+    },
+    {
+      "entity": "order_items",
+      "primary_key": "order_item_id",
+      "foreign_keys": [
+        "order_id",
+        "event_section_id",
+        "ticket_category_id",
+        "event_seat_id"
+      ],
+      "purpose": "Rincian item pembelian, section dan kursi bila ada."
+    },
+    {
+      "entity": "tickets",
+      "primary_key": "ticket_id",
+      "foreign_keys": [
+        "order_id",
+        "order_item_id",
+        "event_id",
+        "event_section_id",
+        "event_seat_id"
+      ],
+      "purpose": "Satu record per admission/peserta; nama peserta dan attendance."
+    },
+    {
+      "entity": "payments",
+      "primary_key": "payment_id",
+      "foreign_keys": [
+        "order_id"
+      ],
+      "purpose": "Pembayaran QRIS melalui sandbox; status payment dipisahkan dari order."
+    },
+    {
+      "entity": "e_tickets",
+      "primary_key": "e_ticket_id",
+      "foreign_keys": [
+        "order_id",
+        "event_id"
+      ],
+      "purpose": "Satu QR code unik per order, bukan per ticket."
+    },
+    {
+      "entity": "checkin_records",
+      "primary_key": "checkin_record_id",
+      "foreign_keys": [
+        "e_ticket_id",
+        "order_id",
+        "ticket_id",
+        "event_id",
+        "checked_by"
+      ],
+      "purpose": "Satu record untuk setiap scan; scan sukses mengonsumsi satu ticket valid."
+    },
+    {
+      "entity": "refunds",
+      "primary_key": "refund_id",
+      "foreign_keys": [
+        "event_id",
+        "order_id",
+        "requested_by_user_id",
+        "ticket_ids"
+      ],
+      "purpose": "Refund peserta atau pembatalan event, dapat mencakup satu/beberapa ticket."
+    },
+    {
+      "entity": "refund_status_histories",
+      "primary_key": "history_id",
+      "foreign_keys": [
+        "refund_id"
+      ],
+      "purpose": "Audit perubahan status refund."
+    },
+    {
+      "entity": "notification_logs",
+      "primary_key": "notification_id",
+      "foreign_keys": [
+        "template_id",
+        "event_id",
+        "order_id",
+        "refund_id",
+        "recipient_user_id"
+      ],
+      "purpose": "Log WhatsApp/e-ticket/reminder, termasuk pemicu manual admin."
+    }
+  ],
+  "booking_reservations": [],
+  "participant_change_logs": [
+    {
+      "change_log_id": "PCL-ATR-001",
+      "ticket_id": "TKT-ATR-001",
+      "changed_by": "USR-CUS-002",
+      "old_participant_name": "Rafi Pratama",
+      "new_participant_name": "Rafi Pratama",
+      "changed_at": "2026-11-03T13:04:30+07:00",
+      "change_type": "INITIAL_PARTICIPANT_ASSIGNMENT",
+      "note": "Dummy audit entry; perubahan nama berikutnya dibatasi sampai H-1."
+    }
+  ],
+  "event_cancellation_records": [
+    {
+      "cancellation_id": "CAN-SWG-001",
+      "event_id": "EVT-SWG-001",
+      "cancelled_by": "USR-ADM-001",
+      "cancelled_at": "2026-11-05T16:00:00+07:00",
+      "reason": "Penyesuaian operasional venue (dummy).",
+      "affected_order_ids": [
+        "ORD-SWG-001",
+        "ORD-SWG-002"
+      ],
+      "affected_ticket_ids": [
+        "TKT-SWG-001",
+        "TKT-SWG-002",
+        "TKT-SWG-003"
+      ],
+      "refund_flow": "COLLECT_DESTINATION_DATA_THEN_MANUAL_TRANSFER",
+      "customer_notification_template_id": "WAT-EVENT-CANCELLED",
+      "auto_refund_executed": false
+    }
+  ]
+}

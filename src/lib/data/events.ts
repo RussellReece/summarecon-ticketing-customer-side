@@ -1,5 +1,90 @@
+// src/lib/data/events.ts
+//
+// Event data adapter & dynamic lookup.
+// Provides backward-compatible helpers while integrating with the live API.
+
 import type { TicketEvent } from "@/types/event";
 
+/**
+ * Normalizes an API CustomerEvent into the TicketEvent shape expected by the UI.
+ */
+export function adaptCustomerEvent(eventInput: unknown): TicketEvent {
+  const event = (eventInput || {}) as Record<string, unknown>;
+  const rawDate = (event.event_date as string) || (event.start_at as string) || (event.dateISO as string) || "2026-11-21";
+  const dateISO = String(rawDate).split("T")[0];
+  let dateLabel = dateISO;
+  try {
+    dateLabel = new Intl.DateTimeFormat("id-ID", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }).format(new Date(`${dateISO}T12:00:00`));
+  } catch {
+    // fallback to iso
+  }
+
+  let time = "19.00 WIB";
+  if (event.start_time) {
+    const [h, m] = String(event.start_time).split(":");
+    time = `${h}.${m} WIB`;
+  } else if (event.start_at && String(event.start_at).includes("T")) {
+    const [h, m] = String(event.start_at).split("T")[1].split(":");
+    time = `${h}.${m} WIB`;
+  }
+
+  const category = (event.category as string) || (event.event_category as string) || "MUSIK";
+  const venueObj = typeof event.venue === "object" && event.venue !== null ? (event.venue as Record<string, unknown>) : null;
+  const venue = venueObj
+    ? String(venueObj.name || "Summarecon Mall Bandung")
+    : String(event.venue_name || event.venue || "Summarecon Mall Bandung");
+  const city = venueObj
+    ? String(venueObj.city || "Bandung")
+    : String(event.city || "Bandung");
+
+  const priceFrom = Number(event.price_from || event.priceFrom || 150000);
+  const premiumPrice = Number(event.price_to || event.premiumPrice || (priceFrom * 2));
+
+  const theme: "violet" | "amber" | "blue" =
+    category.toUpperCase().includes("JAZZ") || category.toUpperCase().includes("EXPO")
+      ? "amber"
+      : category.toUpperCase().includes("MUSIK")
+        ? "violet"
+        : "blue";
+
+  return {
+    id: String(event.slug || event.id || event.event_id),
+    title: (event.title as string) || (event.event_name as string) || "Event Summarecon",
+    category,
+    venue,
+    city,
+    dateLabel,
+    dateISO,
+    time,
+    priceFrom,
+    premiumPrice,
+    description: (event.description as string) || "Nikmati momen terbaik di Summarecon Mall Bandung.",
+    theme,
+    badge: "TIKET TERSEDIA",
+  };
+}
+
+// In-memory cache for live events fetched from the API during the user's session
+const liveEventsCache = new Map<string, TicketEvent>();
+
+export function cacheLiveEvent(eventInput: unknown): TicketEvent {
+  const rec = (eventInput || {}) as Record<string, unknown>;
+  const adapted = adaptCustomerEvent(rec);
+  liveEventsCache.set(String(adapted.id), adapted);
+  if (rec.id) liveEventsCache.set(String(rec.id), adapted);
+  if (rec.slug) liveEventsCache.set(String(rec.slug), adapted);
+  if (rec.event_id) liveEventsCache.set(String(rec.event_id), adapted);
+  return adapted;
+}
+
+/**
+ * Fallback static events (used only if API fails or for offline demo)
+ */
 export const events: TicketEvent[] = [
   {
     id: "sound-of-summarecon",
@@ -51,6 +136,11 @@ export const events: TicketEvent[] = [
   },
 ];
 
-export function getEventById(id: string) {
+export function getEventById(id: string): TicketEvent | undefined {
+  // Check live cache first
+  if (liveEventsCache.has(id)) {
+    return liveEventsCache.get(id);
+  }
+  // Check fallback array
   return events.find((event) => event.id === id);
 }
