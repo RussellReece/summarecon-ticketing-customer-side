@@ -25,18 +25,31 @@ export function SeatLegend({ compact = false, className = "" }: SeatLegendProps)
       aria-label="Legenda status kursi"
     >
       <div className="flex flex-col sm:flex-row sm:flex-wrap items-center justify-center gap-2 sm:gap-3 w-full py-1 text-xs text-stone-700">
-        {/* Baris 1: 3 status di atas pada layar mobile */}
+        {/* Baris 1: Kategori & Status Utama pada layar mobile */}
         <div className="grid grid-cols-3 gap-1.5 sm:gap-3 w-full sm:w-auto sm:flex sm:items-center">
-          {/* Tersedia */}
+          {/* VIP / Premium */}
+          <div className="inline-flex items-center justify-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg bg-white/90 border border-stone-200/80 shadow-2xs">
+            <span
+              className="w-4 h-4 sm:w-5 sm:h-5 rounded-[4px] sm:rounded-[5px] sm:rounded-b-[4px] border sm:border-2 border-[#D9822B] bg-[#FFF8E7] text-[#8F4800] font-bold text-[8px] sm:text-[9px] flex items-center justify-center shrink-0 select-none"
+              aria-hidden="true"
+            >
+              01
+            </span>
+            <span className="font-semibold text-[#8F4800] text-[11px] sm:text-xs whitespace-nowrap">
+              VIP / Premium
+            </span>
+          </div>
+
+          {/* Reguler */}
           <div className="inline-flex items-center justify-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg bg-white/90 border border-stone-200/80 shadow-2xs">
             <span
               className="w-4 h-4 sm:w-5 sm:h-5 rounded-[4px] sm:rounded-[5px] sm:rounded-b-[4px] border sm:border-2 border-[#1F8F7E] bg-[#E3F4F1] text-[#14665A] font-bold text-[8px] sm:text-[9px] flex items-center justify-center shrink-0 select-none"
               aria-hidden="true"
             >
-              01
+              06
             </span>
             <span className="font-medium text-stone-800 text-[11px] sm:text-xs whitespace-nowrap">
-              Tersedia
+              Reguler
             </span>
           </div>
 
@@ -52,9 +65,12 @@ export function SeatLegend({ compact = false, className = "" }: SeatLegendProps)
               Pilihanmu
             </span>
           </div>
+        </div>
 
+        {/* Baris 2: Status Ditahan, Terjual, Terblokir */}
+        <div className="flex items-center justify-center gap-2 sm:gap-3 w-full sm:w-auto">
           {/* Ditahan */}
-          <div className="inline-flex items-center justify-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg bg-white/90 border border-stone-200/80 shadow-2xs">
+          <div className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-2.5 py-1.5 rounded-lg bg-white/90 border border-stone-200/80 shadow-2xs">
             <span
               className="w-4 h-4 sm:w-5 sm:h-5 rounded-[4px] sm:rounded-[5px] sm:rounded-b-[4px] border sm:border-2 border-[#E9A12B] bg-[#E9A12B] text-[#2A1F2D] font-bold text-[8px] sm:text-[9px] flex items-center justify-center shrink-0 select-none"
               aria-hidden="true"
@@ -65,12 +81,9 @@ export function SeatLegend({ compact = false, className = "" }: SeatLegendProps)
               Ditahan
             </span>
           </div>
-        </div>
 
-        {/* Baris 2: 2 status di bawahnya pada layar mobile */}
-        <div className="flex items-center justify-center gap-2 sm:gap-3 w-full sm:w-auto">
           {/* Terjual */}
-          <div className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-2.5 py-1.5 rounded-lg bg-white/90 border border-stone-200/80 shadow-2xs">
+          <div className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-2.5 py-1.5 rounded-lg bg-white/90 border border-stone-200/80 shadow-2xs">
             <span
               className="w-4 h-4 sm:w-5 sm:h-5 rounded-[4px] sm:rounded-[5px] sm:rounded-b-[4px] border sm:border-2 border-[#6B5A6E] bg-[#6B5A6E] text-white font-bold text-[8px] sm:text-[9px] flex items-center justify-center shrink-0 select-none"
               aria-hidden="true"
@@ -83,7 +96,7 @@ export function SeatLegend({ compact = false, className = "" }: SeatLegendProps)
           </div>
 
           {/* Terblokir */}
-          <div className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-2.5 py-1.5 rounded-lg bg-white/90 border border-stone-200/80 shadow-2xs">
+          <div className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-2.5 py-1.5 rounded-lg bg-white/90 border border-stone-200/80 shadow-2xs">
             <span
               className="w-4 h-4 sm:w-5 sm:h-5 rounded-[4px] sm:rounded-[5px] sm:rounded-b-[4px] border sm:border-2 border-[#9A8F95] text-[#5A4D5C] font-bold text-[8px] sm:text-[9px] flex items-center justify-center shrink-0 select-none"
               style={{

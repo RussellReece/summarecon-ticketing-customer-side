@@ -85,6 +85,7 @@ export interface VenueRendererProps {
   seats: VenueSeat[];
   sections: VenueSection[];
   selectedSeatIds: string[];
+  releasedSeatIds?: string[];
   selectedQuota: Record<string, number>;
   onToggleSeat: (seat: VenueSeat) => void;
   onQuotaChange: (sectionId: string, count: number) => void;
@@ -103,6 +104,33 @@ interface SeatBlockData {
     rowLabel: string;
     seats: VenueSeat[];
   }[];
+}
+
+// ─── Status Normalizer (Single Source of Truth) ─────────────────────────────
+
+export function normalizeSeatStatus(
+  rawStatus?: string | null
+): "AVAILABLE" | "LOCKED" | "SOLD" | "BLOCKED" | "DISABLED_EVENT_CANCELLED" {
+  const upper = String(rawStatus || "AVAILABLE").trim().toUpperCase();
+  if (upper === "SOLD" || upper === "PAID" || upper === "BOOKED" || upper === "ISSUED") {
+    return "SOLD";
+  }
+  if (upper === "BLOCKED" || upper === "UNAVAILABLE" || upper === "DISABLED") {
+    return "BLOCKED";
+  }
+  if (
+    upper === "LOCKED" ||
+    upper === "HELD" ||
+    upper === "RESERVED" ||
+    upper === "HOLD" ||
+    upper === "PENDING"
+  ) {
+    return "LOCKED";
+  }
+  if (upper === "DISABLED_EVENT_CANCELLED" || upper === "CANCELLED") {
+    return "DISABLED_EVENT_CANCELLED";
+  }
+  return "AVAILABLE";
 }
 
 // ─── Single Seat Component (Memoized for zero-lag rendering) ──────────────────
@@ -124,11 +152,13 @@ const SeatItem = React.memo(function SeatItem({
   onSelect,
   onHover,
 }: SeatItemProps) {
-  const isSold = seat.status === "SOLD";
-  const isLocked = seat.status === "LOCKED";
-  const isBlocked = seat.status === "BLOCKED";
-  const isAvailable = seat.status === "AVAILABLE" && !isSelected && !isCancelled;
-  const isSeatCancelled = isCancelled || seat.status === "DISABLED_EVENT_CANCELLED";
+  const normStatus = normalizeSeatStatus(seat.status);
+  const isSold = normStatus === "SOLD";
+  const isLocked = normStatus === "LOCKED";
+  const isBlocked = normStatus === "BLOCKED";
+  const isSeatCancelled = isCancelled || normStatus === "DISABLED_EVENT_CANCELLED";
+  const isUnavailableFromBackend = isSold || isLocked || isBlocked || isSeatCancelled;
+  const isAvailable = normStatus === "AVAILABLE" && !isSelected && !isSeatCancelled;
 
   // Dimensions
   // Mobile focus mode: 44px x 44px
@@ -147,34 +177,49 @@ const SeatItem = React.memo(function SeatItem({
       "bg-transparent border-2 border-dashed border-stone-300 text-stone-400 opacity-60 cursor-not-allowed";
     iconSymbol = "—";
     statusTextIndo = "Event Dibatalkan";
+  } else if (isSold) {
+    // SOLD (Backend Single Source of Truth)
+    statusClass =
+      "bg-[#6B5A6E] border-2 border-[#6B5A6E] text-white font-bold opacity-90 cursor-not-allowed select-none";
+    iconSymbol = "✕";
+    statusTextIndo = "Sudah Terjual";
+  } else if (isBlocked) {
+    // BLOCKED (Backend Single Source of Truth)
+    statusClass =
+      "border-2 border-[#9A8F95] text-[#5A4D5C] font-bold cursor-not-allowed opacity-80 select-none";
+    iconSymbol = "⊘";
+    statusTextIndo = `Terblokir: ${seat.blocked_reason ?? "Kebutuhan operasional"}`;
+  } else if (isLocked && !isSelected) {
+    // LOCKED / HELD (Held by other user)
+    statusClass =
+      "bg-[#E9A12B] border-2 border-[#E9A12B] text-[#2A1F2D] font-bold opacity-90 cursor-not-allowed select-none";
+    iconSymbol = "⋯";
+    statusTextIndo = "Sedang Ditahan (10 menit)";
   } else if (isSelected) {
     // SELECTED (Local state)
     statusClass =
       "bg-[#D93A2F] border-2 border-[#D93A2F] text-white font-black shadow-md scale-[1.06] z-20 ring-2 ring-[#8C1F2B] ring-offset-1";
     iconSymbol = "✓";
     statusTextIndo = "Pilihanmu";
-  } else if (isSold) {
-    // SOLD
-    statusClass =
-      "bg-[#6B5A6E] border-2 border-[#6B5A6E] text-white font-bold opacity-90 cursor-not-allowed select-none";
-    iconSymbol = "✕";
-    statusTextIndo = "Sudah Terjual";
-  } else if (isLocked) {
-    // LOCKED (Held by other user)
-    statusClass =
-      "bg-[#E9A12B] border-2 border-[#E9A12B] text-[#2A1F2D] font-bold opacity-90 cursor-not-allowed select-none";
-    iconSymbol = "⋯";
-    statusTextIndo = "Sedang Ditahan (10 menit)";
-  } else if (isBlocked) {
-    // BLOCKED
-    statusClass =
-      "border-2 border-[#9A8F95] text-[#5A4D5C] font-bold cursor-not-allowed opacity-80 select-none";
-    iconSymbol = "⊘";
-    statusTextIndo = `Terblokir: ${seat.blocked_reason ?? "Kebutuhan operasional"}`;
   } else {
     // AVAILABLE
-    statusClass =
-      "bg-[#E3F4F1] border-2 border-[#1F8F7E] text-[#14665A] font-semibold hover:scale-[1.06] hover:bg-[#d5eeea] hover:shadow-sm active:scale-95 cursor-pointer z-10";
+    const seatNum = Number(seat.seat_number) || 0;
+    const isBlockB = seat.block_code === "BLOCK_B" || (!seat.block_code && seatNum > 5);
+    const isPremium =
+      !isBlockB &&
+      (seat.block_code === "BLOCK_A" ||
+        seat.category_name?.toLowerCase().includes("premium") ||
+        seat.category_name?.toLowerCase().includes("vip"));
+
+    if (isPremium) {
+      statusClass =
+        "bg-[#FFF8E7] border-2 border-[#D9822B] text-[#8F4800] font-bold hover:scale-[1.06] hover:bg-[#FEEBC8] hover:shadow-sm active:scale-95 cursor-pointer z-10";
+      statusTextIndo = "Tersedia (Premium/VIP)";
+    } else {
+      statusClass =
+        "bg-[#E3F4F1] border-2 border-[#1F8F7E] text-[#14665A] font-semibold hover:scale-[1.06] hover:bg-[#d5eeea] hover:shadow-sm active:scale-95 cursor-pointer z-10";
+      statusTextIndo = "Tersedia (Reguler)";
+    }
   }
 
   const tooltipText = `Kursi ${seat.seat_label} · ${seat.category_name ?? "Reguler"} · ${
@@ -185,8 +230,11 @@ const SeatItem = React.memo(function SeatItem({
     <button
       type="button"
       className={`${dimClass} rounded-[8px] rounded-b-[5px] flex flex-col items-center justify-center transition-all duration-150 relative select-none shrink-0 ${statusClass}`}
-      disabled={isSeatCancelled || (!isSelected && !isAvailable)}
-      onClick={() => onSelect(seat)}
+      disabled={isSeatCancelled || (isUnavailableFromBackend && !isSelected) || (!isSelected && !isAvailable)}
+      onClick={() => {
+        if (isSeatCancelled || (isUnavailableFromBackend && !isSelected)) return;
+        onSelect(seat);
+      }}
       onMouseEnter={() => onHover(seat)}
       onMouseLeave={() => onHover(null)}
       onFocus={() => onHover(seat)}
@@ -217,6 +265,7 @@ export function VenueRenderer(props: VenueRendererProps) {
     seats,
     sections,
     selectedSeatIds,
+    releasedSeatIds = [],
     selectedQuota,
     onToggleSeat,
     onQuotaChange,
@@ -283,18 +332,39 @@ export function VenueRenderer(props: VenueRendererProps) {
     return () => clearInterval(interval);
   }, [onRefreshSeats, isCancelled]);
 
-  // Extract structured Blocks from seats
+  // Extract structured Blocks from seats with strict local override for releasedSeatIds
   const seatBlocks: SeatBlockData[] = useMemo(() => {
     if (!seats || seats.length === 0) return [];
 
+    const releasedSet = new Set(
+      releasedSeatIds
+        .filter((id) => Boolean(id) && id !== "undefined" && id !== "null")
+        .map((id) => String(id).trim().toUpperCase().replace(/\s+/g, ""))
+    );
+
+    const normalizedSeats: VenueSeat[] = seats.map((s) => {
+      const norm = normalizeSeatStatus(s.status);
+      // Strict override: ONLY override LOCKED/HELD seats if present in releasedSeatIds;
+      // NEVER override SOLD or BLOCKED seats.
+      if (norm === "LOCKED" && releasedSet.size > 0) {
+        const idUpper = String(s.event_seat_id || "").trim().toUpperCase().replace(/\s+/g, "");
+        const labelUpper = String(s.seat_label || "").trim().toUpperCase().replace(/\s+/g, "");
+        if (releasedSet.has(idUpper) || releasedSet.has(labelUpper)) {
+          return { ...s, status: "AVAILABLE" };
+        }
+      }
+      return { ...s, status: norm };
+    });
+
     // Detect if venue has Atrium Cibadak Block A & B pattern
-    const isAtriumCibadak = seats.some((s) => Number(s.seat_number) > 5) && seats.length >= 40;
-    const isSawarga = seats.length <= 16 && seats.length > 0;
+    const isAtriumCibadak =
+      normalizedSeats.some((s) => Number(s.seat_number) > 5) && normalizedSeats.length >= 40;
+    const isSawarga = normalizedSeats.length <= 16 && normalizedSeats.length > 0;
 
     if (isSawarga) {
       // Sawarga Rear Seats (12 seats)
       const rowMap: Record<string, VenueSeat[]> = {};
-      seats.forEach((s) => {
+      normalizedSeats.forEach((s) => {
         const r = s.row_label.replace("REAR-ROW-", "Baris ") || "Baris 1";
         if (!rowMap[r]) rowMap[r] = [];
         rowMap[r].push(s);
@@ -305,18 +375,20 @@ export function VenueRenderer(props: VenueRendererProps) {
         seats: [...sList].sort((a, b) => Number(a.seat_number) - Number(b.seat_number)),
       }));
 
-      const availableCount = seats.filter(
-        (s) => s.status === "AVAILABLE" || selectedSeatIds.includes(s.event_seat_id)
+      const availableCount = normalizedSeats.filter(
+        (s) =>
+          normalizeSeatStatus(s.status) === "AVAILABLE" ||
+          selectedSeatIds.includes(s.event_seat_id)
       ).length;
 
       return [
         {
           blockId: "REAR_SEAT",
           blockName: "Kursi Belakang (Rear Seat)",
-          categoryName: "Book by Seat",
-          price: seats[0]?.price ?? 300000,
+          categoryName: "VIP (01–06) & Reguler (07–12)",
+          price: normalizedSeats[normalizedSeats.length - 1]?.price ?? normalizedSeats[0]?.price ?? 250000,
           availableCount,
-          totalCount: seats.length,
+          totalCount: normalizedSeats.length,
           rows,
         },
       ];
@@ -324,8 +396,12 @@ export function VenueRenderer(props: VenueRendererProps) {
 
     if (isAtriumCibadak) {
       // Split Atrium into Block A (01-05) and Block B (06-10)
-      const blockASeats = seats.filter((s) => Number(s.seat_number) <= 5);
-      const blockBSeats = seats.filter((s) => Number(s.seat_number) > 5);
+      const blockASeats = normalizedSeats.filter(
+        (s) => s.block_code === "BLOCK_A" || (s.block_code !== "BLOCK_B" && Number(s.seat_number) <= 5)
+      );
+      const blockBSeats = normalizedSeats.filter(
+        (s) => s.block_code === "BLOCK_B" || (s.block_code !== "BLOCK_A" && Number(s.seat_number) > 5)
+      );
 
       const buildBlockData = (
         id: string,
@@ -349,7 +425,9 @@ export function VenueRenderer(props: VenueRendererProps) {
         }));
 
         const availableCount = sList.filter(
-          (s) => s.status === "AVAILABLE" || selectedSeatIds.includes(s.event_seat_id)
+          (s) =>
+            normalizeSeatStatus(s.status) === "AVAILABLE" ||
+            selectedSeatIds.includes(s.event_seat_id)
         ).length;
 
         return {
@@ -366,7 +444,7 @@ export function VenueRenderer(props: VenueRendererProps) {
       const blockA = buildBlockData(
         "BLOCK_A",
         "Block A · Seat 01–05",
-        "Premium",
+        "Premium / VIP",
         blockASeats[0]?.price ?? 350000,
         blockASeats
       );
@@ -384,7 +462,7 @@ export function VenueRenderer(props: VenueRendererProps) {
 
     // Generic fallback for any other seating configuration
     const rowMap: Record<string, VenueSeat[]> = {};
-    seats.forEach((s) => {
+    normalizedSeats.forEach((s) => {
       const r = s.row_label || "A";
       if (!rowMap[r]) rowMap[r] = [];
       rowMap[r].push(s);
@@ -402,13 +480,13 @@ export function VenueRenderer(props: VenueRendererProps) {
         blockId: "BLOCK_ALL",
         blockName: "Area Kursi Penonton",
         categoryName: "Reguler",
-        price: seats[0]?.price ?? 250000,
-        availableCount: seats.filter((s) => s.status === "AVAILABLE").length,
-        totalCount: seats.length,
+        price: normalizedSeats[0]?.price ?? 250000,
+        availableCount: normalizedSeats.filter((s) => normalizeSeatStatus(s.status) === "AVAILABLE").length,
+        totalCount: normalizedSeats.length,
         rows,
       },
     ];
-  }, [seats, selectedSeatIds]);
+  }, [seats, selectedSeatIds, releasedSeatIds]);
 
   // Derive active block id safely without triggering effects
   const resolvedActiveBlockId = useMemo(() => {
@@ -430,8 +508,9 @@ export function VenueRenderer(props: VenueRendererProps) {
       if (isCancelled) return;
 
       const isAlreadySelected = selectedSeatIds.includes(seat.event_seat_id);
+      const normStatus = normalizeSeatStatus(seat.status);
 
-      if (!isAlreadySelected && seat.status !== "AVAILABLE") {
+      if (!isAlreadySelected && normStatus !== "AVAILABLE") {
         return;
       }
 

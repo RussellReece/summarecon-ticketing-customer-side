@@ -9,7 +9,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { notFound, useRouter } from "next/navigation";
+import { notFound, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, use, useEffect, useState } from "react";
 import QRCode from "react-qr-code";
 import { cacheLiveEvent, getEventById } from "@/lib/data/events";
@@ -17,6 +17,7 @@ import { fetchEvent, fetchMyQR, fetchMyOrders } from "@/services/customerApi";
 import type { TicketEvent } from "@/types/event";
 import { useBookingStore } from "@/lib/store/useBookingStore";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { formatSeatDisplayName } from "@/lib/utils";
 
 interface TicketPageProps {
   params: Promise<{ id: string }>;
@@ -53,14 +54,33 @@ interface TicketOrderState {
   order_id?: string;
   order_code?: string;
   event_status?: string;
+  buyer?: {
+    full_name?: string;
+    email?: string;
+    phone_number?: string;
+  };
+  buyer_phone?: string;
 }
 
 function TicketPageContent({ params }: TicketPageProps) {
   const { id } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [event, setEvent] = useState<TicketEvent | null>(() => getEventById(id) || null);
   const [isLoading, setIsLoading] = useState(!event);
+  const [justGeneratedFromStorage] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("summa_ticket_just_generated") === "1";
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("summa_ticket_just_generated");
+    }
+  }, []);
 
   const [orderDetails, setOrderDetails] = useState<TicketOrderState | null>(() => {
     if (typeof window !== "undefined") {
@@ -81,6 +101,7 @@ function TicketPageContent({ params }: TicketPageProps) {
 
   const selectedSeats = useBookingStore((s) => s.selectedSeats);
   const participantNames = useBookingStore((s) => s.participantNames);
+  const buyerInfo = useBookingStore((s) => s.buyerInfo);
   const resetBooking = useBookingStore((s) => s.resetBooking);
 
   // Load event details
@@ -156,17 +177,24 @@ function TicketPageContent({ params }: TicketPageProps) {
   const validCount = qrData?.valid_ticket_count ?? (selectedSeats.length || 1);
   const scanCount = qrData?.successful_scan_count ?? 0;
   const qrTokenValue = qrData?.token || qrData?.qr_image || JSON.stringify({ orderId: id });
+  const whatsappNumber =
+    buyerInfo.phoneNumber?.trim() ||
+    orderDetails?.buyer?.phone_number?.trim() ||
+    orderDetails?.buyer_phone?.trim() ||
+    "+628110000101";
 
   // Attendees list
   const attendeeItems = selectedSeats.length > 0
     ? selectedSeats.map((s, i) => ({
-        label: `Kursi ${s.id}`,
+        label: formatSeatDisplayName(s),
         category: s.category,
         name: participantNames[s.id] || `Peserta #${i + 1}`,
       }))
     : [
-        { label: "Kursi A01", category: "Premium", name: "Nadia Putri" },
+        { label: "Blok A · Baris A · Kursi 01", category: "Premium", name: "Nadia Putri" },
       ];
+
+  const isNewlyGenerated = searchParams.get("generated") === "1" || justGeneratedFromStorage;
 
   return (
     <div className="page-container ticket-page max-w-2xl mx-auto py-8 px-4">
@@ -181,6 +209,48 @@ function TicketPageContent({ params }: TicketPageProps) {
           Lihat Semua Pesanan Saya →
         </Link>
       </div>
+
+      {/* WhatsApp E-Ticket & Reminder Notification Alert — ONLY shown right after generating ticket */}
+      {!isCancelled && isNewlyGenerated && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="mb-6 p-4 sm:p-5 rounded-2xl bg-[#E3F4F1] border border-[#1F8F7E]/30 text-[#14665A] shadow-2xs flex items-start gap-3.5"
+        >
+          <div className="w-10 h-10 rounded-xl bg-[#1F8F7E] text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+            <svg
+              className="w-5 h-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+            </svg>
+          </div>
+          <div className="flex-1 text-xs sm:text-sm leading-relaxed">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <strong className="font-extrabold text-[#0F4D44] text-sm">
+                E-Ticket Telah Dikirim Melalui WhatsApp
+              </strong>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#1F8F7E]/15 text-[#0F4D44] border border-[#1F8F7E]/30">
+                Notifikasi Aktif
+              </span>
+            </div>
+            <p className="text-[#14665A]">
+              E-ticket resmi beserta kode QR telah dikirimkan ke nomor WhatsApp{" "}
+              <strong className="font-extrabold text-[#0F4D44] underline decoration-[#1F8F7E]/50">
+                {whatsappNumber}
+              </strong>
+              . Anda juga akan diingatkan secara otomatis pada <strong>H-3</strong> dan{" "}
+              <strong>H-1</strong> sebelum acara berlangsung melalui WhatsApp.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Cancelled Banner if event is cancelled */}
       {isCancelled && (

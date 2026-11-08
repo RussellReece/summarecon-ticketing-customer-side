@@ -2,15 +2,32 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { useAuthStore } from "@/lib/store/useAuthStore";
 import { fetchMe } from "@/services/customerApi";
 import type { CustomerProfile } from "@/types/customer";
 
 export function Header() {
+  return (
+    <Suspense fallback={<HeaderView pathname="" />}>
+      <HeaderWithPathname />
+    </Suspense>
+  );
+}
+
+function HeaderWithPathname() {
+  const pathname = usePathname() || "";
+  return <HeaderView pathname={pathname} />;
+}
+
+function HeaderView({ pathname }: { pathname: string }) {
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const isOrdersActive = pathname.startsWith("/account/orders");
+  const isHomeActive = pathname === "/";
 
   // Sync auth state with backend session on load
   useEffect(() => {
@@ -52,9 +69,32 @@ export function Header() {
 
         {/* Desktop Navigation Links (Hidden on mobile) */}
         <nav className="main-nav hidden md:flex items-center gap-7" aria-label="Navigasi utama">
-          <Link href="/#events" className="hover:text-[#D93A2F] transition">Acara</Link>
-          <Link href="/#how-it-works" className="hover:text-[#D93A2F] transition">Cara pesan</Link>
-          <Link href="/account/orders" className="hover:text-[#D93A2F] transition">Tiket saya</Link>
+          <Link
+            href="/#events"
+            className={`transition py-1 border-b-2 ${
+              isHomeActive
+                ? "text-[#D93A2F] font-bold border-[#D93A2F]"
+                : "text-stone-700 hover:text-[#D93A2F] border-transparent"
+            }`}
+          >
+            Acara
+          </Link>
+          <Link
+            href="/#how-it-works"
+            className="text-stone-700 hover:text-[#D93A2F] transition py-1 border-b-2 border-transparent"
+          >
+            Cara pesan
+          </Link>
+          <Link
+            href="/account/orders"
+            className={`transition py-1 border-b-2 ${
+              isOrdersActive
+                ? "text-[#D93A2F] font-bold border-[#D93A2F]"
+                : "text-stone-700 hover:text-[#D93A2F] border-transparent"
+            }`}
+          >
+            Tiket saya
+          </Link>
         </nav>
 
         {/* Right Actions: User Account + Burger Button (Strictly inside header-inner pill) */}
@@ -110,7 +150,11 @@ export function Header() {
             <Link
               href="/#events"
               onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center justify-between p-3 rounded-xl text-sm font-semibold text-stone-800 hover:bg-stone-50 hover:text-[#D93A2F] transition"
+              className={`flex items-center justify-between p-3 rounded-xl text-sm transition ${
+                isHomeActive
+                  ? "font-bold text-[#D93A2F] bg-rose-50/70 border-l-4 border-[#D93A2F]"
+                  : "font-semibold text-stone-800 hover:bg-stone-50 hover:text-[#D93A2F]"
+              }`}
             >
               <span>Acara</span>
               <span className="text-stone-400 text-xs">→</span>
@@ -128,13 +172,17 @@ export function Header() {
             <Link
               href="/account/orders"
               onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center justify-between p-3 rounded-xl text-sm font-bold text-stone-900 bg-rose-50/70 text-[#D93A2F] hover:bg-rose-100/70 transition"
+              className={`flex items-center justify-between p-3 rounded-xl text-sm transition ${
+                isOrdersActive
+                  ? "font-bold text-[#D93A2F] bg-rose-50 border-l-4 border-[#D93A2F]"
+                  : "font-semibold text-stone-800 hover:bg-stone-50 hover:text-[#D93A2F]"
+              }`}
             >
               <span className="flex items-center gap-2">
                 <span>🎟️</span>
                 <span>Tiket saya</span>
               </span>
-              <span className="text-[#D93A2F] text-xs">→</span>
+              <span className="text-[#D93A2F] text-xs font-bold">→</span>
             </Link>
 
             <div className="pt-2 mt-2 border-t border-stone-100">

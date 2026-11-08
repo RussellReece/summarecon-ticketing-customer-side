@@ -175,6 +175,24 @@ export function EventExplorer() {
     });
   }, [events, query, location, date, category]);
 
+  // Priority indicator for nearest upcoming event
+  const nearestEventId = useMemo(() => {
+    const valid = filteredEvents
+      .map((ev) => {
+        const rec = ev as unknown as UnknownRecord;
+        const dt = getEventDateInfo(rec);
+        const status = getEventStatus(rec);
+        return {
+          id: getEventId(rec),
+          time: new Date(`${dt.iso}T12:00:00`).getTime(),
+          status,
+        };
+      })
+      .filter((e) => e.status !== "CANCELLED" && e.status !== "COMPLETED")
+      .sort((a, b) => a.time - b.time);
+    return valid[0]?.id;
+  }, [filteredEvents]);
+
   return (
     <>
       {/* Hero Section */}
@@ -386,14 +404,24 @@ export function EventExplorer() {
                 ? STATUS_LABELS[eventStatus].toUpperCase()
                 : "TIKET TERSEDIA";
 
+              const isNearest = String(id) === String(nearestEventId);
+
               return (
-                <article className="event-card" key={id}>
+                <article className="event-card relative" key={id}>
                   <Link
                     aria-label={`Lihat ${title}`}
                     className={`event-art art-${theme}`}
                     href={href}
                   >
                     <span className="event-art-word">{artWord}</span>
+                    <div className="absolute top-3 right-3 z-10 flex flex-col gap-1 items-end">
+                      {isNearest && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider bg-amber-400 text-stone-900 px-2.5 py-1 rounded-full shadow-md animate-pulse">
+                          <span>🔥</span>
+                          <span>Event Terdekat</span>
+                        </span>
+                      )}
+                    </div>
                     <span
                       className="event-badge"
                       style={

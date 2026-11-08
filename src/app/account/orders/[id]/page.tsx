@@ -14,7 +14,7 @@ import {
   createRefund,
 } from "@/services/customerApi";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { formatRupiah } from "@/lib/utils";
+import { formatRupiah, formatSeatDisplayName } from "@/lib/utils";
 import {
   formatIndonesianDateTime,
   checkHMinusOneCutoff,
@@ -219,8 +219,12 @@ function OrderDetailContent({ params }: OrderDetailPageProps) {
 
     try {
       await createRefund({
-        order_id: Number(orderId) || 1,
+        order_id: String(orderId),
         reason: refundReason || "Pengajuan refund peserta",
+        dest_method: refundMethod,
+        dest_provider_name: providerName,
+        dest_account_number: accountNumber,
+        dest_account_holder: accountHolderName,
         refund_destination: {
           method: refundMethod,
           bank_or_provider: providerName,
@@ -228,8 +232,8 @@ function OrderDetailContent({ params }: OrderDetailPageProps) {
           account_name: accountHolderName,
         },
       });
-    } catch {
-      // Fallback: log local state for prototype review
+    } catch (err) {
+      console.error("Refund submission error:", err);
     }
 
     setIsSubmittingRefund(false);
@@ -370,9 +374,11 @@ function OrderDetailContent({ params }: OrderDetailPageProps) {
             const ticketId = item.id || `TKT-${idx + 1}`;
             const attendee = item.attendee_name || "Nadia Putri";
             const cleanSeatLabel = item.seat_label
-              ? item.seat_label.toLowerCase().startsWith("kursi")
-                ? item.seat_label
-                : `Kursi ${item.seat_label}`
+              ? formatSeatDisplayName({
+                  id: item.seat_label,
+                  seat_label: item.seat_label,
+                  category: item.category,
+                })
               : `Tiket #${idx + 1}`;
 
             return (

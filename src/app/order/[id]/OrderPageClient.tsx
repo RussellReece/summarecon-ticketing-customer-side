@@ -12,9 +12,9 @@ import { useRouter, notFound } from "next/navigation";
 import { useBookingStore } from "@/lib/store/useBookingStore";
 import CountdownTimer from "@/components/shared/CountdownTimer";
 import { cacheLiveEvent, getEventById } from "@/lib/data/events";
-import { fetchEvent, fetchMe, createOrder } from "@/services/customerApi";
+import { fetchEvent, fetchMe, createOrder, type CreateOrderPayload } from "@/services/customerApi";
 import type { TicketEvent } from "@/types/event";
-import { formatRupiah } from "@/lib/utils";
+import { formatRupiah, formatSeatDisplayName } from "@/lib/utils";
 
 interface OrderPageProps {
   params: Promise<{ id: string }>;
@@ -48,6 +48,7 @@ function OrderForm({ params }: OrderPageProps) {
   const {
     selectedSeats,
     quotaItems,
+    holdId,
     timeLeft,
     releaseHold,
     setBuyerInfo: saveBuyerToStore,
@@ -117,7 +118,7 @@ function OrderForm({ params }: OrderPageProps) {
   const allTicketEntries = [
     ...selectedSeats.map((s, idx) => ({
       key: s.id,
-      label: `Kursi ${s.id}`,
+      label: formatSeatDisplayName(s),
       category: s.category,
       price: s.price,
       sequence: idx + 1,
@@ -183,19 +184,31 @@ function OrderForm({ params }: OrderPageProps) {
     });
 
     try {
-      const orderPayload = {
-        event_id: Number(id) || 1,
-        seat_ids: selectedSeats.map((s) => Number(s.number) || 1),
+      const orderPayload: CreateOrderPayload = {
+        event_id: id,
+        hold_id: holdId,
+        seat_ids: selectedSeats.map((s) => s.id),
+        event_seat_ids: selectedSeats.map((s) => s.id),
+        buyer: {
+          full_name: buyer.name || "Nadia Putri",
+          email: buyer.email || "nadia.demo@example.test",
+          phone_number: buyer.phone || "+628110000101",
+        },
         items: allTicketEntries.map((t) => ({
-          seat_id: Number(t.key.replace(/\D/g, "")) || 1,
+          seat_id: t.key,
+          event_seat_id: t.key,
           attendee_name: participants[t.key] || buyer.name || "Peserta",
+          participant_name: participants[t.key] || buyer.name || "Peserta",
         })),
       };
 
-      let createdOrder: unknown = null;
+      let createdOrder: Record<string, unknown> | null = null;
       try {
         const orderRes = await createOrder(orderPayload);
-        createdOrder = orderRes.data;
+        createdOrder = {
+          ...(orderRes.data as unknown as Record<string, unknown>),
+          buyer: orderPayload.buyer,
+        };
       } catch {
         // Fallback (ACR-03): Create local simulated order for seamless testing
         createdOrder = {
@@ -208,6 +221,7 @@ function OrderForm({ params }: OrderPageProps) {
           total_amount: totalPrice,
           ticket_count: allTicketEntries.length,
           created_at: new Date().toISOString(),
+          buyer: orderPayload.buyer,
           event: {
             id: event?.id || id,
             name: event?.title || "Bandung Tech & Creative Expo",
@@ -240,6 +254,7 @@ function OrderForm({ params }: OrderPageProps) {
   };
 
   const handleConfirmBack = async () => {
+    setShowBackConfirm(false);
     await releaseHold(id);
     router.push(`/event/${id}/book`);
   };

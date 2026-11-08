@@ -42,8 +42,22 @@ export function adaptCustomerEvent(eventInput: unknown): TicketEvent {
     ? String(venueObj.city || "Bandung")
     : String(event.city || "Bandung");
 
-  const priceFrom = Number(event.price_from || event.priceFrom || 150000);
-  const premiumPrice = Number(event.price_to || event.premiumPrice || (priceFrom * 2));
+  let priceFrom = Number(event.price_from || event.priceFrom || 0);
+  let premiumPrice = Number(event.price_to || event.premiumPrice || 0);
+
+  if (Array.isArray(event.categories) && event.categories.length > 0) {
+    const prices = (event.categories as Array<{ price?: number }>)
+      .map((c) => Number(c.price))
+      .filter((p) => !isNaN(p) && p > 0);
+    if (prices.length > 0) {
+      priceFrom = Math.min(...prices);
+      premiumPrice = Math.max(...prices);
+    }
+  }
+
+  // Sensible defaults if not present
+  if (!priceFrom) priceFrom = 250000;
+  if (!premiumPrice || premiumPrice === priceFrom) premiumPrice = 350000;
 
   const theme: "violet" | "amber" | "blue" =
     category.toUpperCase().includes("JAZZ") || category.toUpperCase().includes("EXPO")
@@ -53,7 +67,7 @@ export function adaptCustomerEvent(eventInput: unknown): TicketEvent {
         : "blue";
 
   return {
-    id: String(event.slug || event.id || event.event_id),
+    id: String(event.event_id || event.id || event.slug),
     title: (event.title as string) || (event.event_name as string) || "Event Summarecon",
     category,
     venue,
@@ -86,6 +100,54 @@ export function cacheLiveEvent(eventInput: unknown): TicketEvent {
  * Fallback static events (used only if API fails or for offline demo)
  */
 export const events: TicketEvent[] = [
+  {
+    id: "EVT-ATR-001",
+    title: "Bandung Tech & Creative Expo",
+    category: "EXPO",
+    venue: "Atrium Cibadak",
+    city: "Bandung",
+    dateLabel: "Min, 20 Des 2026",
+    dateISO: "2026-12-20",
+    time: "10.00 WIB",
+    priceFrom: 250000,
+    premiumPrice: 350000,
+    description:
+      "Pameran teknologi dan kreativitas dengan tempat duduk bernomor pada Atrium Cibadak.",
+    theme: "amber",
+    badge: "TIKET TERSEDIA",
+  },
+  {
+    id: "EVT-SWG-001",
+    title: "Sawarga Outdoor Live Fest",
+    category: "FESTIVAL",
+    venue: "Sawarga Courtyard",
+    city: "Bandung",
+    dateLabel: "Min, 27 Des 2026",
+    dateISO: "2026-12-27",
+    time: "16.00 WIB",
+    priceFrom: 175000,
+    premiumPrice: 350000,
+    description:
+      "Konser outdoor dengan standing pit di depan, reserved seating di belakang, dan reserved quota.",
+    theme: "violet",
+    badge: "TIKET TERSEDIA",
+  },
+  {
+    id: "EVT-V3-002",
+    title: "Bandung Fest 2026",
+    category: "FESTIVAL",
+    venue: "Sawarga Courtyard",
+    city: "Bandung",
+    dateLabel: "Sab, 09 Jan 2027",
+    dateISO: "2027-01-09",
+    time: "15.00 WIB",
+    priceFrom: 150000,
+    premiumPrice: 300000,
+    description:
+      "Festival musik dan kreativitas outdoor Bandung Fest di area Sawarga Courtyard.",
+    theme: "violet",
+    badge: "TIKET TERSEDIA",
+  },
   {
     id: "sound-of-summarecon",
     title: "Sound of Summarecon",

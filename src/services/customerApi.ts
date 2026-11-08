@@ -163,7 +163,7 @@ export function holdSeats(
  */
 export function releaseHolds(
   eventId: number | string,
-  holdIds: number[],
+  holdIds: (number | string)[],
 ): Promise<void> {
   return apiDelete(`/events/${eventId}/holds`, { body: { hold_ids: holdIds } });
 }
@@ -173,11 +173,21 @@ export function releaseHolds(
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export interface CreateOrderPayload {
-  event_id: number;
-  seat_ids: number[];
-  items: Array<{
-    seat_id: number;
+  event_id: number | string;
+  user_id?: string;
+  hold_id?: string | null;
+  seat_ids: (number | string)[];
+  event_seat_ids?: (number | string)[];
+  buyer?: {
+    full_name: string;
+    email: string;
+    phone_number: string;
+  };
+  items?: Array<{
+    seat_id?: number | string;
+    event_seat_id?: number | string;
     attendee_name: string;
+    participant_name?: string;
   }>;
 }
 
@@ -192,6 +202,17 @@ export function createOrder(
   payload: CreateOrderPayload,
 ): Promise<ApiSingleResponse<CustomerOrder>> {
   return apiPost("/orders", payload);
+}
+
+/**
+ * Pay and confirm an order.
+ * `POST /api/orders/:id/pay`
+ * Transitions order to PAID and seats to SOLD in SQLite database.
+ */
+export function payOrder(
+  orderId: number | string,
+): Promise<ApiSingleResponse<{ order_id: string; order_code: string; order_status: string; qr_token?: string }>> {
+  return apiPost(`/orders/${orderId}/pay`, {});
 }
 
 /**
@@ -210,7 +231,7 @@ export function fetchMyOrders(token?: string): Promise<ApiListResponse<CustomerO
 
 /**
  * Fetch a single order by its ID.
- * `GET /api/customer/orders/:id`
+ * Resolves order through the customer orders list to prevent 404 console errors.
  *
  * @param token Optional session token
  * @throws ApiError 401 — not authenticated
@@ -220,28 +241,28 @@ export async function fetchMyOrder(
   orderId: number | string,
   token?: string,
 ): Promise<ApiSingleResponse<CustomerOrder>> {
+  // Upstream API serves customer orders via /customer/orders list.
+  // Resolve first from the list to avoid noisy 404 in browser console.
   try {
-    return await apiGet(`/customer/orders/${orderId}`, undefined, token ? { token } : undefined);
-  } catch (err) {
-    // ACR-02 fallback: If 404, look up in fetchMyOrders list
-    try {
-      const listRes = await fetchMyOrders(token);
-      const list = Array.isArray(listRes.data)
-        ? listRes.data
-        : (listRes.data as { items?: CustomerOrder[] })?.items || [];
-      const found = list.find(
-        (o: CustomerOrder) =>
-          String(o.id) === String(orderId) ||
-          String(o.order_code) === String(orderId),
-      );
-      if (found) {
-        return { data: found };
-      }
-    } catch {
-      // Fall through to throw original error
+    const listRes = await fetchMyOrders(token);
+    const list = Array.isArray(listRes.data)
+      ? listRes.data
+      : (listRes.data as { items?: CustomerOrder[] })?.items || [];
+    const found = list.find(
+      (o: CustomerOrder & { order_id?: string | number }) =>
+        String(o.id) === String(orderId) ||
+        String(o.order_id) === String(orderId) ||
+        String(o.order_code) === String(orderId),
+    );
+    if (found) {
+      return { data: found };
     }
-    throw err;
+  } catch {
+    // Fall through to direct fetch
   }
+
+  // Fallback to direct path
+  return await apiGet(`/customer/orders/${orderId}`, undefined, token ? { token } : undefined);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -271,16 +292,20 @@ export function fetchMyQR(
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export interface CreateRefundPayload {
-  order_id: number;
-  reason: string;
-  refund_destination: RefundDestination;
+  order_id: number | string;
+  reason?: string;
+  dest_method?: "BANK_TRANSFER" | "E_WALLET";
+  dest_provider_name?: string;
+  dest_account_number?: string;
+  dest_account_holder?: string;
+  refund_destination?: RefundDestination;
 }
 
 /**
  * Submit a refund request for a paid order.
  * `POST /api/customer/refunds`
  *
- * Creates a `refunds` row with status `UNDER_REVIEW`.
+ * Creates a `refunds` row with status `UNDER_REVIEW` or `REQUESTED`.
  *
  * @throws ApiError 401 — not authenticated
  * @throws ApiError 409 — refund already exists for this order
@@ -288,7 +313,28 @@ export interface CreateRefundPayload {
 export function createRefund(
   payload: CreateRefundPayload,
 ): Promise<ApiSingleResponse<CustomerRefund>> {
-  return apiPost("/customer/refunds", payload);
+  const body = {
+    order_id: payload.order_id,
+    reason: payload.reason || "Pengajuan refund peserta",
+    dest_method:
+      payload.dest_method ||
+      payload.refund_destination?.method ||
+      "BANK_TRANSFER",
+    dest_provider_name:
+      payload.dest_provider_name ||
+      payload.refund_destination?.bank_or_provider ||
+      "BCA",
+    dest_account_number:
+      payload.dest_account_number ||
+      payload.refund_destination?.account_number ||
+      "",
+    dest_account_holder:
+      payload.dest_account_holder ||
+      payload.refund_destination?.account_name ||
+      "",
+    refund_destination: payload.refund_destination,
+  };
+  return apiPost("/customer/refunds", body);
 }
 
 /**

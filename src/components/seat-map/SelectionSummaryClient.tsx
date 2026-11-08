@@ -8,7 +8,7 @@
 
 import React from "react";
 import { useBookingStore } from "@/lib/store/useBookingStore";
-import { formatRupiah } from "@/lib/utils";
+import { formatRupiah, formatSeatDisplayName } from "@/lib/utils";
 
 interface SelectionSummaryClientProps {
   maxTicketsTotal?: number;
@@ -69,7 +69,7 @@ export function SelectionSummaryClient({ maxTicketsTotal = 4 }: SelectionSummary
                   </button>
                   <div>
                     <span className="font-extrabold text-stone-900 mr-1.5">
-                      Kursi {seat.id}
+                      {formatSeatDisplayName(seat)}
                     </span>
                     <span className="text-stone-500 text-[11px] block sm:inline">
                       ({seat.category})

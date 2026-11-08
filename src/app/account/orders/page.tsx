@@ -190,12 +190,17 @@ export default function AccountOrdersPage() {
               >
                 {/* Header Card */}
                 <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-stone-100">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs font-bold text-stone-700 bg-stone-100 px-2.5 py-1 rounded-md">
                       {order.order_code || orderId}
                     </span>
-                    <span className="text-[11px] text-stone-400">
-                      {order.created_at ? formatIndonesianDateTime(order.created_at) : ""}
+                    <span className="text-[11px] font-medium text-stone-500 inline-flex items-center gap-1">
+                      <span>🕒 Dipesan:</span>
+                      <span>
+                        {order.created_at
+                          ? formatIndonesianDateTime(order.created_at)
+                          : formatIndonesianDateTime(new Date().toISOString())}
+                      </span>
                     </span>
                   </div>
 

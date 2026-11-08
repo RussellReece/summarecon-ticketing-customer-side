@@ -11,10 +11,10 @@ import { notFound, useRouter } from "next/navigation";
 import { Suspense, use, useEffect, useState, useMemo } from "react";
 import QRCode from "react-qr-code";
 import { cacheLiveEvent, getEventById } from "@/lib/data/events";
-import { fetchEvent, fetchMyOrders } from "@/services/customerApi";
+import { fetchEvent, fetchMyOrders, payOrder } from "@/services/customerApi";
 import type { TicketEvent } from "@/types/event";
 import { useBookingStore } from "@/lib/store/useBookingStore";
-import { formatRupiah } from "@/lib/utils";
+import { formatRupiah, formatSeatDisplayName } from "@/lib/utils";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatRemainingTime } from "@/lib/time-utils";
 
@@ -138,7 +138,7 @@ function PaymentPageContent({ params }: PaymentPageProps) {
   const allTickets = useMemo(() => {
     return [
       ...selectedSeats.map((s) => ({
-        label: `Kursi ${s.id}`,
+        label: formatSeatDisplayName(s),
         category: s.category,
         price: s.price,
       })),
@@ -191,7 +191,10 @@ function PaymentPageContent({ params }: PaymentPageProps) {
 
         if (resolvedOrderStatus === "PAID") {
           clearLockTimer();
-          router.push(`/ticket/${id}`);
+          if (typeof window !== "undefined") {
+            sessionStorage.setItem("summa_ticket_just_generated", "1");
+          }
+          router.push(`/ticket/${id}?generated=1`);
           return;
         }
       }
@@ -205,8 +208,17 @@ function PaymentPageContent({ params }: PaymentPageProps) {
   };
 
   // Sandbox simulation handler
-  const handleSimulatePayment = (mode: "SUCCESS" | "FAILED" | "EXPIRED") => {
+  const handleSimulatePayment = async (mode: "SUCCESS" | "FAILED" | "EXPIRED") => {
     setIsChecking(true);
+
+    const resolvedOrderId = activeOrder?.id || activeOrder?.order_id;
+    if (mode === "SUCCESS" && resolvedOrderId && !resolvedOrderId.startsWith("ORD-SIM")) {
+      try {
+        await payOrder(resolvedOrderId);
+      } catch (err) {
+        console.warn("payOrder API notification:", err);
+      }
+    }
 
     setTimeout(() => {
       setPaymentStatus(mode);
@@ -218,12 +230,12 @@ function PaymentPageContent({ params }: PaymentPageProps) {
 
         // Update stored order status
         if (typeof window !== "undefined") {
-          const resolvedOrderId = activeOrder?.id || activeOrder?.order_id || `ORD-SIM-${Date.now()}`;
+          const finalOrderId = resolvedOrderId || `ORD-SIM-${Date.now()}`;
           const resolvedCode = activeOrder?.order_code || `ORD-${Date.now().toString().slice(-6)}`;
           const updated = {
             ...activeOrder,
-            id: resolvedOrderId,
-            order_id: resolvedOrderId,
+            id: finalOrderId,
+            order_id: finalOrderId,
             order_code: resolvedCode,
             status: "PAID",
             order_status: "PAID",
@@ -267,10 +279,11 @@ function PaymentPageContent({ params }: PaymentPageProps) {
           } catch {
             // Ignore storage quota
           }
+          sessionStorage.setItem("summa_ticket_just_generated", "1");
         }
 
-        // Navigate to E-Ticket
-        router.push(`/ticket/${event?.id || id}`);
+        // Navigate to E-Ticket with generated flag so WhatsApp alert only shows after generation
+        router.push(`/ticket/${event?.id || id}?generated=1`);
       } else if (mode === "FAILED") {
         setOrderStatus("CANCELLED");
         clearLockTimer();
@@ -318,15 +331,15 @@ function PaymentPageContent({ params }: PaymentPageProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
         {/* Kolom Kiri: QRIS Card */}
         <section className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm text-center">
-          {/* Status Bar */}
-          <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-stone-100 text-xs">
-            <div className="flex items-center gap-1.5">
-              <span className="text-stone-500">Status Pesanan:</span>
-              <StatusBadge status={orderStatus} size="sm" />
+          {/* Status Bar: Responsive grid ensuring zero overflow on mobile */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4 pb-3 border-b border-stone-100 text-xs">
+            <div className="flex items-center justify-between sm:justify-start gap-2">
+              <span className="text-stone-500 font-medium">Status Pesanan:</span>
+              <StatusBadge status={orderStatus} size="sm" className="whitespace-nowrap shrink-0" />
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-stone-500">Status Pembayaran:</span>
-              <StatusBadge status={paymentStatus} size="sm" />
+            <div className="flex items-center justify-between sm:justify-start gap-2">
+              <span className="text-stone-500 font-medium">Status Pembayaran:</span>
+              <StatusBadge status={paymentStatus} size="sm" className="whitespace-nowrap shrink-0" />
             </div>
           </div>
 
@@ -455,30 +468,33 @@ function PaymentPageContent({ params }: PaymentPageProps) {
               Karena berada di lingkungan sandbox demo, kamu dapat meniru callback gateway untuk menguji seluruh skenario alur tiket.
             </p>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
               <button
                 type="button"
                 onClick={() => handleSimulatePayment("SUCCESS")}
                 disabled={isChecking || paymentStatus === "SUCCESS"}
-                className="py-2.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition shadow-sm text-center disabled:opacity-50"
+                className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 py-2.5 px-1.5 sm:px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] sm:text-xs leading-tight transition shadow-sm text-center disabled:opacity-50"
               >
-                ✓ Bayar Sukses
+                <span>✓</span>
+                <span>Bayar Sukses</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleSimulatePayment("FAILED")}
                 disabled={isChecking || paymentStatus === "SUCCESS"}
-                className="py-2.5 px-3 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition shadow-sm text-center disabled:opacity-50"
+                className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 py-2.5 px-1.5 sm:px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10px] sm:text-xs leading-tight transition shadow-sm text-center disabled:opacity-50"
               >
-                ✕ Bayar Gagal
+                <span>✕</span>
+                <span>Bayar Gagal</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleSimulatePayment("EXPIRED")}
                 disabled={isChecking || paymentStatus === "SUCCESS"}
-                className="py-2.5 px-3 rounded-lg bg-stone-600 hover:bg-stone-700 text-white font-bold text-xs transition shadow-sm text-center disabled:opacity-50"
+                className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 py-2.5 px-1.5 sm:px-3 rounded-xl bg-stone-600 hover:bg-stone-700 text-white font-bold text-[10px] sm:text-xs leading-tight transition shadow-sm text-center disabled:opacity-50"
               >
-                ◷ Kedaluwarsa
+                <span>◷</span>
+                <span>Kedaluwarsa</span>
               </button>
             </div>
           </div>

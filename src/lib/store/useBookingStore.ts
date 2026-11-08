@@ -14,6 +14,7 @@ import { getSecondsRemaining } from "@/lib/time-utils";
 const HOLD_DURATION_SECONDS = 10 * 60; // 10 minutes
 const MAX_SEATS = 4;
 const STORAGE_KEY = "summa_booking_state";
+const RELEASED_STORAGE_KEY = "summa_released_seats";
 
 export interface QuotaSelectionItem {
   sectionId: string;
@@ -37,6 +38,8 @@ interface BookingState {
 
   holdId: string | null;
   holdIds: string[];
+  heldSeatIds: string[];
+  releasedSeatIds: string[];
   reservedUntil: string | null;
   timeLeft: number;
   isLocked: boolean;
@@ -66,6 +69,53 @@ interface BookingState {
   hydrateFromStorage: () => void;
 }
 
+function saveReleasedToSession(ids: string[]) {
+  if (typeof window === "undefined") return;
+  try {
+    const clean = Array.from(
+      new Set(
+        ids
+          .filter((id) => Boolean(id) && id !== "undefined" && id !== "null")
+          .map((id) => String(id).trim())
+      )
+    );
+    sessionStorage.setItem(RELEASED_STORAGE_KEY, JSON.stringify(clean));
+  } catch {
+    // Ignore storage quota
+  }
+}
+
+export function loadReleasedFromSession(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = sessionStorage.getItem(RELEASED_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed
+          .filter((id) => Boolean(id) && id !== "undefined" && id !== "null")
+          .map((id) => String(id).trim())
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function expandSeatIdentifiers(seats: Seat[] | undefined): string[] {
+  if (!Array.isArray(seats)) return [];
+  const keys: string[] = [];
+  seats.forEach((s) => {
+    if (s.id) keys.push(String(s.id).trim());
+    if (s.row && s.number !== undefined) {
+      const numStr = String(s.number).padStart(2, "0");
+      keys.push(`${s.row}${numStr}`);
+      keys.push(`${s.row}-${numStr}`);
+      keys.push(`ATR-${s.row}-${numStr}`);
+    }
+  });
+  return keys.filter((k) => Boolean(k) && k !== "undefined" && k !== "null");
+}
+
 function saveToSession(state: Partial<BookingState>) {
   if (typeof window === "undefined") return;
   try {
@@ -76,6 +126,7 @@ function saveToSession(state: Partial<BookingState>) {
       quotaItems: state.quotaItems,
       holdId: state.holdId,
       holdIds: state.holdIds,
+      heldSeatIds: state.heldSeatIds,
       reservedUntil: state.reservedUntil,
       isLocked: state.isLocked,
       buyerInfo: state.buyerInfo,
@@ -106,6 +157,8 @@ export const useBookingStore = create<BookingState>((set, get) => ({
 
   holdId: null,
   holdIds: [],
+  heldSeatIds: [],
+  releasedSeatIds: loadReleasedFromSession(),
   reservedUntil: null,
   timeLeft: HOLD_DURATION_SECONDS,
   isLocked: false,
@@ -121,7 +174,15 @@ export const useBookingStore = create<BookingState>((set, get) => ({
 
   hydrateFromStorage: () => {
     const saved = loadFromSession();
-    if (!saved) return;
+    const persistedReleased = loadReleasedFromSession();
+    if (!saved) {
+      if (persistedReleased.length > 0) {
+        set((prev) => ({
+          releasedSeatIds: Array.from(new Set([...prev.releasedSeatIds, ...persistedReleased])),
+        }));
+      }
+      return;
+    }
 
     if (saved.reservedUntil) {
       const remaining = getSecondsRemaining(saved.reservedUntil);
@@ -130,24 +191,38 @@ export const useBookingStore = create<BookingState>((set, get) => ({
         sessionStorage.removeItem(STORAGE_KEY);
         return;
       }
-      set({
+      set((prev) => ({
         ...saved,
+        releasedSeatIds: Array.from(new Set([...prev.releasedSeatIds, ...persistedReleased])),
         timeLeft: remaining,
         isLocked: true,
-      });
+      }));
       get().startLockTimer(saved.reservedUntil);
       return;
     }
 
-    set(saved);
+    set((prev) => ({
+      ...saved,
+      releasedSeatIds: Array.from(new Set([...prev.releasedSeatIds, ...persistedReleased])),
+    }));
   },
 
   setEvent: (eventId: string) => {
     const state = get();
-    if (state.eventId !== eventId) {
+    const persistedReleased = loadReleasedFromSession();
+    if (state.eventId && state.eventId !== eventId) {
       get().resetBooking();
-      set({ eventId });
-      saveToSession({ eventId });
+      set({
+        eventId,
+        heldSeatIds: [],
+        releasedSeatIds: Array.from(new Set([...state.releasedSeatIds, ...persistedReleased])),
+      });
+      saveToSession(get());
+    } else if (!state.eventId) {
+      set({
+        eventId,
+        releasedSeatIds: Array.from(new Set([...state.releasedSeatIds, ...persistedReleased])),
+      });
     }
   },
 
@@ -160,6 +235,11 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     const currentQuotaCount = Object.values(state.selectedQuota).reduce((a, b) => a + b, 0);
 
     const isAlreadySelected = currentSeats.some((s) => s.id === seat.id);
+
+    // Strictly reject selecting any seat whose status is not AVAILABLE
+    if (!isAlreadySelected && seat.status && String(seat.status).toUpperCase() !== "AVAILABLE") {
+      return;
+    }
 
     // Max 4 tickets total
     if (!isAlreadySelected && currentSeats.length + currentQuotaCount >= MAX_SEATS) {
@@ -223,7 +303,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
 
   // Atomic hold creation on "Lanjut"
   createHold: async (eventId: string, userId?: string) => {
-    const { selectedSeats, selectedQuota } = get();
+    const { selectedSeats, selectedQuota, releasedSeatIds } = get();
     const totalSelected =
       selectedSeats.length + Object.values(selectedQuota).reduce((a, b) => a + b, 0);
 
@@ -232,6 +312,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     }
 
     const seatIds = selectedSeats.map((s) => s.id);
+    const allHeldKeys = expandSeatIdentifiers(selectedSeats);
 
     try {
       set({ conflictError: null });
@@ -243,6 +324,8 @@ export const useBookingStore = create<BookingState>((set, get) => ({
           reserved_until?: string;
           hold_id?: string;
           hold_ids?: string[] | number[];
+          event_seat_ids?: string[];
+          seat_ids?: (string | number)[];
         };
         const reservedUntil =
           holdData.reserved_until || new Date(Date.now() + HOLD_DURATION_SECONDS * 1000).toISOString();
@@ -253,10 +336,21 @@ export const useBookingStore = create<BookingState>((set, get) => ({
           ? [holdId]
           : [];
 
+        const apiReturnedSeatIds = [
+          ...(Array.isArray(holdData.event_seat_ids) ? holdData.event_seat_ids.map(String) : []),
+          ...(Array.isArray(holdData.seat_ids) ? holdData.seat_ids.map(String) : []),
+        ];
+        const finalHeldKeys = Array.from(new Set([...allHeldKeys, ...apiReturnedSeatIds]));
+        const nextReleased = releasedSeatIds.filter((id) => !finalHeldKeys.includes(id));
+        saveReleasedToSession(nextReleased);
+
         set({
+          eventId,
           isLocked: true,
           holdId,
           holdIds,
+          heldSeatIds: finalHeldKeys,
+          releasedSeatIds: nextReleased,
           reservedUntil,
         });
 
@@ -268,9 +362,11 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       // If standing/quota only, hold locally with 10 min timer
       const reservedUntil = new Date(Date.now() + HOLD_DURATION_SECONDS * 1000).toISOString();
       set({
+        eventId,
         isLocked: true,
         holdId: `HLD-QUOTA-${Date.now()}`,
         holdIds: [`HLD-QUOTA-${Date.now()}`],
+        heldSeatIds: [],
         reservedUntil,
       });
 
@@ -290,18 +386,72 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   },
 
   releaseHold: async (eventId: string) => {
-    const { holdIds, holdId } = get();
+    const state = get();
+    const saved = loadFromSession();
+
+    const holdIds =
+      state.holdIds.length > 0
+        ? state.holdIds
+        : saved?.holdIds && saved.holdIds.length > 0
+        ? saved.holdIds
+        : [];
+    const holdId = state.holdId || saved?.holdId || null;
     const idsToRelease = holdIds.length > 0 ? holdIds : holdId ? [holdId] : [];
+
+    // Collect every seat identifier from active state AND sessionStorage BEFORE resetting
+    const keysFromHeld = [
+      ...(state.heldSeatIds || []),
+      ...(saved?.heldSeatIds || []),
+    ];
+    const keysFromSelected = [
+      ...expandSeatIdentifiers(state.selectedSeats),
+      ...expandSeatIdentifiers(saved?.selectedSeats),
+    ];
+
+    const mergedReleased = Array.from(
+      new Set(
+        [
+          ...loadReleasedFromSession(),
+          ...state.releasedSeatIds,
+          ...keysFromHeld,
+          ...keysFromSelected,
+        ].filter((id) => Boolean(id) && id !== "undefined" && id !== "null")
+      )
+    );
+
+    // Persist immediately to sessionStorage and Zustand BEFORE network call / navigation
+    saveReleasedToSession(mergedReleased);
+
+    const { timerId } = get();
+    if (timerId) clearInterval(timerId);
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem(STORAGE_KEY);
+    }
+
+    set({
+      eventId: state.eventId || eventId,
+      selectedSeats: [],
+      selectedQuota: {},
+      quotaItems: {},
+      holdId: null,
+      holdIds: [],
+      heldSeatIds: [],
+      releasedSeatIds: mergedReleased,
+      reservedUntil: null,
+      timeLeft: HOLD_DURATION_SECONDS,
+      isLocked: false,
+      timerId: null,
+      conflictError: null,
+      participantNames: {},
+    });
 
     if (idsToRelease.length > 0) {
       try {
-        await releaseHolds(eventId, idsToRelease.map(Number));
+        await releaseHolds(eventId, idsToRelease);
       } catch {
-        // Backend auto-expires holds on timeout
+        // Backend auto-expires holds on timeout (DELETE /holds may return 405)
       }
     }
-
-    get().resetBooking();
   },
 
   setBuyerInfo: (info: Partial<BuyerInfo>) => {
@@ -376,6 +526,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       quotaItems: {},
       holdId: null,
       holdIds: [],
+      heldSeatIds: [],
       reservedUntil: null,
       timeLeft: HOLD_DURATION_SECONDS,
       isLocked: false,

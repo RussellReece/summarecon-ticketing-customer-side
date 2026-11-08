@@ -69,9 +69,21 @@ export function formatIndonesianDateTime(
     }).format(date);
 
     if (timeStr) {
-      const cleanTime = timeStr.slice(0, 5); // "19:00"
-      return `${dateFormatted}, ${cleanTime} WIB`;
+      const cleanTime = timeStr.slice(0, 5).replace(":", ".");
+      return `${dateFormatted} · Pukul ${cleanTime} WIB`;
     }
+
+    // If dateStr contains time information (ISO with T or timestamp)
+    if (String(dateStr).includes("T") || !isNaN(Number(dateStr))) {
+      const timeFormatted = new Intl.DateTimeFormat("id-ID", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Asia/Jakarta",
+        hour12: false,
+      }).format(date).replace(":", ".");
+      return `${dateFormatted} · Pukul ${timeFormatted} WIB`;
+    }
+
     return `${dateFormatted} WIB`;
   } catch {
     return dateStr;
