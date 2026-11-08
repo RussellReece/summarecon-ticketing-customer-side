@@ -14,6 +14,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { SeatLegend } from "./SeatLegend";
 import { QuotaCard, type QuotaSectionData } from "./QuotaCard";
 import { formatRupiah } from "@/lib/utils";
+import { loadReleasedFromSession } from "@/lib/store/useBookingStore";
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -336,8 +337,9 @@ export function VenueRenderer(props: VenueRendererProps) {
   const seatBlocks: SeatBlockData[] = useMemo(() => {
     if (!seats || seats.length === 0) return [];
 
+    const persistedReleased = loadReleasedFromSession();
     const releasedSet = new Set(
-      releasedSeatIds
+      [...releasedSeatIds, ...persistedReleased]
         .filter((id) => Boolean(id) && id !== "undefined" && id !== "null")
         .map((id) => String(id).trim().toUpperCase().replace(/\s+/g, ""))
     );

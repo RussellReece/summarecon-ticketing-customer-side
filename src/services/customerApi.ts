@@ -128,7 +128,7 @@ export function fetchEvent(eventId: number | string): Promise<ApiSingleResponse<
 export function fetchEventSeats(
   eventId: number | string,
 ): Promise<ApiListResponse<CustomerSeat>> {
-  return apiGet(`/events/${eventId}/seats`);
+  return apiGet(`/events/${eventId}/seats`, undefined, { cache: "no-store" });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -160,12 +160,25 @@ export function holdSeats(
 /**
  * Release held seats before the timer expires.
  * `DELETE /api/events/:id/holds`
+ * Uses `keepalive: true` so the browser completes the DELETE request even if
+ * the user immediately navigates back to the seat map route.
  */
 export function releaseHolds(
   eventId: number | string,
   holdIds: (number | string)[],
+  seatIds?: (number | string)[],
 ): Promise<void> {
-  return apiDelete(`/events/${eventId}/holds`, { body: { hold_ids: holdIds } });
+  const primaryHoldId = holdIds[0] !== undefined ? String(holdIds[0]) : undefined;
+  return apiDelete(`/events/${eventId}/holds`, {
+    keepalive: true,
+    body: {
+      ...(primaryHoldId ? { hold_id: primaryHoldId } : {}),
+      hold_ids: holdIds,
+      ...(seatIds && seatIds.length > 0
+        ? { event_seat_ids: seatIds, seat_ids: seatIds }
+        : {}),
+    },
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

@@ -12,18 +12,27 @@ import { useRouter } from "next/navigation";
 import { fetchMyOrders, fetchMe } from "@/services/customerApi";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatRupiah } from "@/lib/utils";
-import { formatIndonesianDateTime } from "@/lib/time-utils";
+import { formatIndonesianDateTime, getPaymentSecondsRemaining } from "@/lib/time-utils";
 
 interface OrderHistoryItem {
   order_id?: string;
   id?: string | number;
   order_code?: string;
+  event_id?: string | number;
   order_status?: string;
   status?: string;
+  payment_status?: string;
   created_at?: string;
+  expires_at?: string;
+  payment_expires_at?: string;
   event_status?: string;
   total_amount?: number;
   ticket_count?: number;
+  payment?: {
+    status?: string;
+    expires_at?: string;
+    created_at?: string;
+  };
   event?: {
     id?: string | number;
     name?: string;
@@ -178,10 +187,33 @@ export default function AccountOrdersPage() {
         <div className="space-y-4">
           {orders.map((order) => {
             const orderId = order.order_id || order.id;
-            const eventId = order.event?.id || "EVT-ATR-001";
+            const eventId = order.event?.id || order.event_id || "EVT-ATR-001";
             const isCancelled =
               order.event_status === "CANCELLED" || order.event?.status === "CANCELLED";
             const ticketCount = order.ticket_count || order.items?.length || 1;
+
+            const rawOrderStatus = String(order.order_status || order.status || "PAID").toUpperCase();
+            const rawPaymentStatus = String(
+              order.payment_status || order.payment?.status || rawOrderStatus
+            ).toUpperCase();
+            const isPaid =
+              rawOrderStatus === "PAID" ||
+              rawOrderStatus === "SUCCESS" ||
+              rawPaymentStatus === "PAID" ||
+              rawPaymentStatus === "SUCCESS";
+            const isPending =
+              !isPaid &&
+              (rawOrderStatus === "UNPAID" ||
+                rawOrderStatus === "PENDING" ||
+                rawPaymentStatus === "UNPAID" ||
+                rawPaymentStatus === "PENDING");
+            const remainingSec = isPending ? getPaymentSecondsRemaining(order) : 0;
+            const canContinuePayment = isPending && remainingSec > 0;
+            const effectiveStatus = isPaid
+              ? "PAID"
+              : isPending && remainingSec <= 0
+                ? "EXPIRED"
+                : rawOrderStatus;
 
             return (
               <div
@@ -205,7 +237,7 @@ export default function AccountOrdersPage() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <StatusBadge status={order.order_status || order.status} size="sm" />
+                    <StatusBadge status={effectiveStatus} size="sm" />
                     {isCancelled && (
                       <span className="text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 px-2 py-0.5 rounded-full">
                         EVENT DIBATALKAN
@@ -258,9 +290,37 @@ export default function AccountOrdersPage() {
                       Detail Pesanan
                     </Link>
 
-                    {(order.order_status === "PAID" || order.status === "PAID") && (
+                    {canContinuePayment && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (typeof window !== "undefined") {
+                            try {
+                              sessionStorage.setItem("summa_active_order", JSON.stringify(order));
+                            } catch {
+                              // ignore
+                            }
+                          }
+                          router.push(`/payment/${orderId}`);
+                        }}
+                        className="px-4 py-1.5 text-xs font-bold rounded-lg bg-[#D93A2F] text-white hover:bg-[#c23329] transition shadow-xs"
+                      >
+                        Lanjutkan Pembayaran →
+                      </button>
+                    )}
+
+                    {isPaid && (
                       <Link
-                        href={`/ticket/${eventId}`}
+                        href={`/ticket/${eventId}?orderId=${encodeURIComponent(String(orderId))}`}
+                        onClick={() => {
+                          if (typeof window !== "undefined") {
+                            try {
+                              sessionStorage.setItem("summa_active_order", JSON.stringify(order));
+                            } catch {
+                              // ignore
+                            }
+                          }
+                        }}
                         className="px-4 py-1.5 text-xs font-bold rounded-lg bg-[#D93A2F] text-white hover:bg-[#c23329] transition shadow-xs"
                       >
                         Lihat E-Ticket QR →

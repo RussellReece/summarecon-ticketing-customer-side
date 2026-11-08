@@ -7,18 +7,166 @@
 "use client";
 
 import Link from "next/link";
-import { notFound, useRouter } from "next/navigation";
+import { notFound, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, use, useEffect, useState, useMemo } from "react";
 import QRCode from "react-qr-code";
 import { cacheLiveEvent, getEventById } from "@/lib/data/events";
-import { fetchEvent, fetchMyOrders, payOrder } from "@/services/customerApi";
+import { fetchEvent, fetchMyOrder, fetchMyOrders, payOrder } from "@/services/customerApi";
 import type { TicketEvent } from "@/types/event";
 import { useBookingStore } from "@/lib/store/useBookingStore";
 import { formatRupiah, formatSeatDisplayName } from "@/lib/utils";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { formatRemainingTime } from "@/lib/time-utils";
+import {
+  formatRemainingTime,
+  getEstimatedServerTime,
+  getPaymentExpiryTimestampMs,
+} from "@/lib/time-utils";
 
 const PAYMENT_TIMEOUT_SECONDS = 7 * 60; // 7 minutes per business rule
+
+interface ActiveOrderRecord {
+  id?: string;
+  order_id?: string;
+  order_code?: string;
+  event_id?: string | number;
+  hold_id?: string;
+  hold_ids?: string[];
+  total_amount?: number;
+  status?: string;
+  order_status?: string;
+  payment_status?: string;
+  created_at?: string;
+  expires_at?: string;
+  payment_expires_at?: string;
+  paid_at?: string;
+  ticket_count?: number;
+  payment?: {
+    status?: string;
+    expires_at?: string;
+    created_at?: string;
+  };
+  event?: {
+    id?: string | number;
+    name?: string;
+    title?: string;
+    start_at?: string;
+    status?: string;
+  };
+  seat_ids?: string[];
+  items?: Array<{
+    id: string;
+    seat_id?: string | number;
+    event_seat_id?: string | number;
+    seat_label?: string;
+    row_label?: string;
+    seat_number?: number | string;
+    block?: string;
+    block_code?: string;
+    price?: number;
+    category?: string;
+    category_name?: string;
+    attendee_name?: string;
+    participant_name?: string;
+    seat?: {
+      id?: string | number;
+      seat_label?: string;
+      row_label?: string;
+      seat_number?: number | string;
+      block?: string;
+      block_code?: string;
+      category?: string;
+    } | null;
+    ticket_category?: {
+      name?: string;
+      price?: number;
+    } | null;
+  }>;
+}
+
+function findInitialActiveOrder(routeId: string, queryOrderId: string | null): ActiveOrderRecord | null {
+  if (typeof window === "undefined") return null;
+
+  const targetOrderKey = queryOrderId || routeId;
+  let sessionOrder: ActiveOrderRecord | null = null;
+
+  try {
+    const raw = sessionStorage.getItem("summa_active_order");
+    if (raw) {
+      sessionOrder = JSON.parse(raw) as ActiveOrderRecord;
+    }
+  } catch {
+    // ignore
+  }
+
+  let localOrders: ActiveOrderRecord[] = [];
+  try {
+    const rawLocal = localStorage.getItem("summa_customer_orders");
+    if (rawLocal) {
+      const parsed = JSON.parse(rawLocal);
+      if (Array.isArray(parsed)) {
+        localOrders = parsed as ActiveOrderRecord[];
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  const allCandidates = sessionOrder ? [sessionOrder, ...localOrders] : localOrders;
+
+  // 1. Exact match by order ID or order code
+  const exactOrderMatch = allCandidates.find(
+    (o) =>
+      String(o.id || "") === String(targetOrderKey) ||
+      String(o.order_id || "") === String(targetOrderKey) ||
+      String(o.order_code || "") === String(targetOrderKey)
+  );
+  if (exactOrderMatch) return exactOrderMatch;
+
+  // 2. If sessionOrder matches the event ID, prefer it
+  if (
+    sessionOrder &&
+    (String(sessionOrder.event?.id || "") === String(routeId) ||
+      String(sessionOrder.event_id || "") === String(routeId))
+  ) {
+    return sessionOrder;
+  }
+
+  // 3. Look in localOrders for an active UNPAID/PENDING order for this event
+  const pendingEventMatch = localOrders.find((o) => {
+    const evId = String(o.event?.id || o.event_id || "");
+    const st = String(o.order_status || o.status || "UNPAID").toUpperCase();
+    return evId === String(routeId) && (st === "UNPAID" || st === "PENDING");
+  });
+  if (pendingEventMatch) return pendingEventMatch;
+
+  return sessionOrder;
+}
+
+function syncOrderStorage(updatedOrder: ActiveOrderRecord) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem("summa_active_order", JSON.stringify(updatedOrder));
+  } catch {
+    // ignore
+  }
+  try {
+    const rawLocal = localStorage.getItem("summa_customer_orders");
+    const localList: ActiveOrderRecord[] = rawLocal ? JSON.parse(rawLocal) : [];
+    const targetId = String(updatedOrder.id || updatedOrder.order_id || "");
+    const targetCode = updatedOrder.order_code;
+    const filtered = localList.filter(
+      (o) =>
+        String(o.id || o.order_id || "") !== targetId &&
+        (!targetCode || o.order_code !== targetCode)
+    );
+    localStorage.setItem(
+      "summa_customer_orders",
+      JSON.stringify([updatedOrder, ...filtered])
+    );
+  } catch {
+    // ignore
+  }
+}
 
 interface PaymentPageProps {
   params: Promise<{ id: string }>;
@@ -42,101 +190,204 @@ export default function PaymentPageClient({ params }: PaymentPageProps) {
 function PaymentPageContent({ params }: PaymentPageProps) {
   const { id } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryOrderId = searchParams.get("orderId");
 
-  const [event, setEvent] = useState<TicketEvent | null>(() => getEventById(id) || null);
-  const [isLoading, setIsLoading] = useState(!event);
+  // Active order retrieved from sessionStorage / localStorage if available
+  const [activeOrder, setActiveOrder] = useState<ActiveOrderRecord | null>(() =>
+    findInitialActiveOrder(id, queryOrderId)
+  );
+
+  const resolvedEventId = useMemo(() => {
+    const fromOrder = activeOrder?.event?.id || activeOrder?.event_id;
+    if (fromOrder) return String(fromOrder);
+    return id;
+  }, [activeOrder, id]);
+
+  const [fetchedEvent, setFetchedEvent] = useState<TicketEvent | null>(null);
+  const event = useMemo(
+    () => fetchedEvent || getEventById(resolvedEventId) || null,
+    [fetchedEvent, resolvedEventId]
+  );
+  const [isLoading, setIsLoading] = useState(() => !getEventById(resolvedEventId));
 
   const selectedSeats = useBookingStore((s) => s.selectedSeats);
   const quotaItems = useBookingStore((s) => s.quotaItems);
   const clearLockTimer = useBookingStore((s) => s.clearLockTimer);
-  const resetBooking = useBookingStore((s) => s.resetBooking);
+  const releaseHold = useBookingStore((s) => s.releaseHold);
+  const hydrateFromStorage = useBookingStore((s) => s.hydrateFromStorage);
 
-  // Active order retrieved from sessionStorage if available
-  const [activeOrder] = useState<{
-    id?: string;
-    order_id?: string;
-    order_code?: string;
-    total_amount?: number;
-    status?: string;
-    order_status?: string;
-    payment_status?: string;
-    paid_at?: string;
-    ticket_count?: number;
-    event?: {
-      id?: string | number;
-      name?: string;
-      title?: string;
-      start_at?: string;
-      status?: string;
-    };
-    seat_ids?: string[];
-    items?: Array<{
-      id: string;
-      seat_label?: string;
-      price?: number;
-      category?: string;
-      attendee_name?: string;
-    }>;
-  } | null>(() => {
+  // Restore booking store state on mount so heldSeatIds & selectedSeats are available
+  useEffect(() => {
+    hydrateFromStorage();
+  }, [hydrateFromStorage]);
+
+  // Resolve deterministic expiration timestamp (persisted across page navigation)
+  const expiryTimestampMs = useMemo(() => {
+    const fromOrder = getPaymentExpiryTimestampMs(activeOrder);
+    if (fromOrder !== null) return fromOrder;
+
     if (typeof window !== "undefined") {
-      const raw = sessionStorage.getItem("summa_active_order");
-      if (raw) {
-        try {
-          return JSON.parse(raw);
-        } catch {
-          // ignore
+      const storageKey = `summa_payment_expiry_${activeOrder?.id || activeOrder?.order_id || queryOrderId || id}`;
+      const existingRaw = sessionStorage.getItem(storageKey);
+      if (existingRaw) {
+        const parsed = Number(existingRaw);
+        if (!Number.isNaN(parsed) && parsed > 0) {
+          return parsed;
         }
       }
+      const fallbackExpiry = getEstimatedServerTime() + PAYMENT_TIMEOUT_SECONDS * 1000;
+      sessionStorage.setItem(storageKey, String(fallbackExpiry));
+      return fallbackExpiry;
     }
-    return null;
+
+    return getEstimatedServerTime() + PAYMENT_TIMEOUT_SECONDS * 1000;
+  }, [activeOrder, id, queryOrderId]);
+
+  // Payment state initialized from activeOrder and persistent timestamp
+  const [orderStatus, setOrderStatus] = useState<string>(() => {
+    const raw = String(activeOrder?.order_status || activeOrder?.status || "PENDING").toUpperCase();
+    if (raw === "PAID" || raw === "SUCCESS") return "PAID";
+    if (raw === "EXPIRED" || raw === "CANCELLED" || raw === "FAILED") return raw;
+    const initialRemaining = Math.max(0, Math.floor((expiryTimestampMs - getEstimatedServerTime()) / 1000));
+    return initialRemaining <= 0 ? "EXPIRED" : "PENDING";
   });
 
-  // Payment state
-  const [orderStatus, setOrderStatus] = useState<string>("PENDING");
-  const [paymentStatus, setPaymentStatus] = useState<string>("PENDING");
-  const [paymentSecondsLeft, setPaymentSecondsLeft] = useState(PAYMENT_TIMEOUT_SECONDS);
+  const [paymentStatus, setPaymentStatus] = useState<string>(() => {
+    const rawOrder = String(activeOrder?.order_status || activeOrder?.status || "PENDING").toUpperCase();
+    const rawPay = String(
+      activeOrder?.payment?.status || activeOrder?.payment_status || "PENDING"
+    ).toUpperCase();
+    if (rawOrder === "PAID" || rawPay === "PAID" || rawPay === "SUCCESS") return "SUCCESS";
+    if (rawPay === "FAILED" || rawOrder === "CANCELLED") return "FAILED";
+    if (rawPay === "EXPIRED" || rawOrder === "EXPIRED") return "EXPIRED";
+    const initialRemaining = Math.max(0, Math.floor((expiryTimestampMs - getEstimatedServerTime()) / 1000));
+    return initialRemaining <= 0 ? "EXPIRED" : "PENDING";
+  });
+
+  const [paymentSecondsLeft, setPaymentSecondsLeft] = useState<number>(() => {
+    const diffSec = Math.floor((expiryTimestampMs - getEstimatedServerTime()) / 1000);
+    return Math.max(0, diffSec);
+  });
+
   const [isChecking, setIsChecking] = useState(false);
+  const [isReleasing, setIsReleasing] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  // Load event
+  // Sync activeOrder timestamps to storage on mount,
+  // or fetch order from API if user navigated directly via /payment/[orderId]
   useEffect(() => {
-    if (!event) {
-      fetchEvent(id)
-        .then((res) => {
-          if (res.data) setEvent(cacheLiveEvent(res.data));
-        })
-        .catch((err) => {
-          console.error("Failed to load event for payment:", err);
-        })
-        .finally(() => setIsLoading(false));
+    if (activeOrder) {
+      const expIso = new Date(expiryTimestampMs).toISOString();
+      const createdIso =
+        activeOrder.created_at ||
+        new Date(expiryTimestampMs - PAYMENT_TIMEOUT_SECONDS * 1000).toISOString();
+      syncOrderStorage({
+        ...activeOrder,
+        created_at: createdIso,
+        expires_at: activeOrder.expires_at || expIso,
+        payment_expires_at: activeOrder.payment_expires_at || expIso,
+      });
+      return;
     }
-  }, [id, event]);
 
-  // 7-minute payment countdown
+    // If activeOrder wasn't in local/session storage, try fetching from API (e.g. /payment/ORD-...)
+    const targetId = queryOrderId || id;
+    if (!targetId) return;
+
+    fetchMyOrder(targetId)
+      .then((res) => {
+        if (res.data) {
+          const fetched = res.data as unknown as ActiveOrderRecord;
+          setActiveOrder(fetched);
+          syncOrderStorage(fetched);
+        }
+      })
+      .catch(async () => {
+        try {
+          const listRes = await fetchMyOrders();
+          const rawData = listRes.data as unknown;
+          const list: ActiveOrderRecord[] = Array.isArray(rawData)
+            ? (rawData as ActiveOrderRecord[])
+            : ((rawData as { items?: ActiveOrderRecord[] })?.items || []);
+          const found = list.find(
+            (o) =>
+              String(o.id || o.order_id || "") === String(targetId) ||
+              String(o.order_code || "") === String(targetId) ||
+              (String(o.event?.id || o.event_id || "") === String(id) &&
+                ["UNPAID", "PENDING"].includes(String(o.order_status || o.status || "").toUpperCase()))
+          );
+          if (found) {
+            setActiveOrder(found);
+            syncOrderStorage(found);
+          }
+        } catch {
+          // Ignore
+        }
+      });
+  }, [activeOrder, expiryTimestampMs, id, queryOrderId]);
+
+  // Load event using resolvedEventId
+  useEffect(() => {
+    if (getEventById(resolvedEventId)) {
+      return;
+    }
+
+    fetchEvent(resolvedEventId)
+      .then((res) => {
+        if (res.data) setFetchedEvent(cacheLiveEvent(res.data));
+      })
+      .catch((err) => {
+        console.error("Failed to load event for payment:", err);
+      })
+      .finally(() => setIsLoading(false));
+  }, [resolvedEventId]);
+
+  // Persistent 7-minute payment countdown calculated from absolute expiryTimestampMs
   useEffect(() => {
     if (paymentStatus === "SUCCESS" || paymentStatus === "FAILED" || paymentStatus === "EXPIRED") {
       return;
     }
 
     const timer = setInterval(() => {
-      setPaymentSecondsLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          setPaymentStatus("EXPIRED");
-          setOrderStatus("EXPIRED");
-          clearLockTimer();
-          return 0;
+      const remaining = Math.max(0, Math.floor((expiryTimestampMs - getEstimatedServerTime()) / 1000));
+      setPaymentSecondsLeft(remaining);
+
+      if (remaining <= 0) {
+        clearInterval(timer);
+        setPaymentStatus("EXPIRED");
+        setOrderStatus("EXPIRED");
+        clearLockTimer();
+        if (activeOrder) {
+          syncOrderStorage({
+            ...activeOrder,
+            status: "EXPIRED",
+            order_status: "EXPIRED",
+            payment_status: "EXPIRED",
+          });
         }
-        return prev - 1;
-      });
+        void releaseHold(event?.id || resolvedEventId);
+      }
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [paymentStatus, clearLockTimer]);
+  }, [paymentStatus, expiryTimestampMs, clearLockTimer, releaseHold, event?.id, resolvedEventId, activeOrder]);
 
   const quotaList = Object.values(quotaItems);
   const allTickets = useMemo(() => {
-    return [
+    if (activeOrder?.items && activeOrder.items.length > 0) {
+      return activeOrder.items.map((item) => ({
+        label: formatSeatDisplayName(item.seat || item),
+        category:
+          item.category ||
+          item.category_name ||
+          item.ticket_category?.name ||
+          item.seat?.category ||
+          "Reguler",
+        price: item.price ?? item.ticket_category?.price ?? 0,
+      }));
+    }
+    const fromStore = [
       ...selectedSeats.map((s) => ({
         label: formatSeatDisplayName(s),
         category: s.category,
@@ -150,58 +401,129 @@ function PaymentPageContent({ params }: PaymentPageProps) {
         }))
       ),
     ];
-  }, [selectedSeats, quotaList]);
+    return fromStore;
+  }, [selectedSeats, quotaList, activeOrder]);
 
   const totalPrice = useMemo(() => {
     if (activeOrder?.total_amount) return activeOrder.total_amount;
     return allTickets.reduce((sum, item) => sum + item.price, 0);
   }, [activeOrder, allTickets]);
 
-  // "Cek Status" manual button
+  // "Cek Status" manual button — ONLY navigates to /ticket/:id if API strictly confirms PAID / SUCCESS
   const handleCheckStatus = async () => {
     setIsChecking(true);
     setStatusMessage(null);
 
     try {
-      const ordersRes = await fetchMyOrders();
-      const rawData = ordersRes.data as unknown;
-      const list: Array<{
-        event?: { id?: string | number };
-        order_id?: string;
-        id?: string | number;
-        order_code?: string;
-        order_status?: string;
-        status?: string;
-        payment?: { status?: string };
-      }> = Array.isArray(rawData)
-        ? (rawData as Array<{ event?: { id?: string | number }; order_id?: string; id?: string | number; order_code?: string; order_status?: string; status?: string; payment?: { status?: string } }>)
-        : ((rawData as { items?: Array<{ event?: { id?: string | number }; order_id?: string; id?: string | number; order_code?: string; order_status?: string; status?: string; payment?: { status?: string } }> })?.items || []);
+      const targetOrderId = String(
+        activeOrder?.id || activeOrder?.order_id || queryOrderId || ""
+      ).trim();
+      const targetOrderCode = String(activeOrder?.order_code || "").trim();
 
-      const found = list.find(
-        (o) =>
-          String(o.event?.id) === String(id) ||
-          o.order_id === activeOrder?.id ||
-          o.order_code === activeOrder?.order_code
-      );
+      let found: ActiveOrderRecord | null = null;
 
-      if (found) {
-        const resolvedOrderStatus = found.order_status || found.status || "PENDING";
-        setOrderStatus(resolvedOrderStatus);
-        setPaymentStatus(found.payment?.status || resolvedOrderStatus === "PAID" ? "SUCCESS" : "PENDING");
-
-        if (resolvedOrderStatus === "PAID") {
-          clearLockTimer();
-          if (typeof window !== "undefined") {
-            sessionStorage.setItem("summa_ticket_just_generated", "1");
+      // 1. If we have a specific non-simulated order ID, query fetchMyOrder(targetOrderId) first
+      if (targetOrderId && !targetOrderId.startsWith("ORD-SIM")) {
+        try {
+          const singleRes = await fetchMyOrder(targetOrderId);
+          if (singleRes.data) {
+            found = singleRes.data as unknown as ActiveOrderRecord;
           }
-          router.push(`/ticket/${id}?generated=1`);
-          return;
+        } catch {
+          // Fallback to fetchMyOrders list below
         }
       }
 
-      setStatusMessage("Status pembayaran belum berubah. Silakan scan QRIS di bawah ini.");
+      // 2. Fallback: look in fetchMyOrders() strictly by the current order's ID or order_code
+      if (!found) {
+        const ordersRes = await fetchMyOrders();
+        const rawData = ordersRes.data as unknown;
+        const list: ActiveOrderRecord[] = Array.isArray(rawData)
+          ? (rawData as ActiveOrderRecord[])
+          : ((rawData as { items?: ActiveOrderRecord[] })?.items || []);
+
+        found =
+          list.find((o) => {
+            const oId = String(o.order_id || o.id || "").trim();
+            const oCode = String(o.order_code || "").trim();
+            if (targetOrderId && oId === targetOrderId) return true;
+            if (targetOrderCode && oCode === targetOrderCode) return true;
+            // If route param `id` itself is an order ID / order code
+            if (oId === String(id) || oCode === String(id)) return true;
+            return false;
+          }) || null;
+      }
+
+      // 3. Fallback to activeOrder in local/session state if simulated
+      const orderToEvaluate = found || activeOrder;
+
+      if (orderToEvaluate) {
+        const rawOrderStatus = String(
+          orderToEvaluate.order_status || orderToEvaluate.status || "UNPAID"
+        ).toUpperCase();
+        const rawPaymentStatus = String(
+          orderToEvaluate.payment?.status ||
+            orderToEvaluate.payment_status ||
+            (rawOrderStatus === "PAID" || rawOrderStatus === "SUCCESS" ? "SUCCESS" : "PENDING")
+        ).toUpperCase();
+
+        const isPaid =
+          rawOrderStatus === "PAID" ||
+          rawOrderStatus === "SUCCESS" ||
+          rawPaymentStatus === "PAID" ||
+          rawPaymentStatus === "SUCCESS";
+
+        if (isPaid) {
+          setOrderStatus("PAID");
+          setPaymentStatus("SUCCESS");
+          clearLockTimer();
+
+          const updatedPaidOrder: ActiveOrderRecord = {
+            ...activeOrder,
+            ...orderToEvaluate,
+            status: "PAID",
+            order_status: "PAID",
+            payment_status: "PAID",
+            paid_at: orderToEvaluate.paid_at || new Date().toISOString(),
+          };
+          setActiveOrder(updatedPaidOrder);
+          syncOrderStorage(updatedPaidOrder);
+
+          if (typeof window !== "undefined") {
+            sessionStorage.setItem("summa_ticket_just_generated", "1");
+          }
+          const paidOrderId = String(
+            updatedPaidOrder.id || updatedPaidOrder.order_id || targetOrderId || ""
+          );
+          const orderQuery = paidOrderId ? `orderId=${encodeURIComponent(paidOrderId)}&` : "";
+          router.push(`/ticket/${event?.id || resolvedEventId}?${orderQuery}generated=1`);
+          return;
+        }
+
+        if (rawOrderStatus === "EXPIRED" || rawPaymentStatus === "EXPIRED") {
+          setOrderStatus("EXPIRED");
+          setPaymentStatus("EXPIRED");
+          clearLockTimer();
+          void releaseHold(event?.id || resolvedEventId);
+          return;
+        }
+
+        if (rawOrderStatus === "CANCELLED" || rawPaymentStatus === "FAILED") {
+          setOrderStatus("CANCELLED");
+          setPaymentStatus("FAILED");
+          clearLockTimer();
+          void releaseHold(event?.id || resolvedEventId);
+          return;
+        }
+
+        // Still UNPAID or PENDING — keep on payment page and show alert
+        setOrderStatus("PENDING");
+        setPaymentStatus("PENDING");
+      }
+
+      setStatusMessage("Pembayaran belum diterima. Silakan selesaikan pembayaran melalui kode QRIS di atas.");
     } catch {
-      setStatusMessage("Menunggu verifikasi pembayaran sandbox.");
+      setStatusMessage("Pembayaran belum diterima. Silakan pindai kode QRIS atau gunakan simulator sandbox.");
     } finally {
       setIsChecking(false);
     }
@@ -220,7 +542,7 @@ function PaymentPageContent({ params }: PaymentPageProps) {
       }
     }
 
-    setTimeout(() => {
+    setTimeout(async () => {
       setPaymentStatus(mode);
       setIsChecking(false);
 
@@ -229,10 +551,10 @@ function PaymentPageContent({ params }: PaymentPageProps) {
         clearLockTimer();
 
         // Update stored order status
+        const finalOrderId = resolvedOrderId || `ORD-SIM-${Date.now()}`;
         if (typeof window !== "undefined") {
-          const finalOrderId = resolvedOrderId || `ORD-SIM-${Date.now()}`;
           const resolvedCode = activeOrder?.order_code || `ORD-${Date.now().toString().slice(-6)}`;
-          const updated = {
+          const updated: ActiveOrderRecord = {
             ...activeOrder,
             id: finalOrderId,
             order_id: finalOrderId,
@@ -244,7 +566,7 @@ function PaymentPageContent({ params }: PaymentPageProps) {
             total_amount: totalPrice,
             ticket_count: allTickets.length,
             event: activeOrder?.event || {
-              id: event?.id || id,
+              id: event?.id || resolvedEventId,
               name: event?.title || "Bandung Tech & Creative Expo",
               title: event?.title || "Bandung Tech & Creative Expo",
               start_at: event?.dateISO || new Date().toISOString(),
@@ -252,49 +574,69 @@ function PaymentPageContent({ params }: PaymentPageProps) {
             },
             seat_ids: activeOrder?.seat_ids || selectedSeats.map((s) => s.id),
             items:
-              activeOrder?.items ||
-              allTickets.map((t, idx) => ({
-                id: `item-${idx + 1}`,
-                seat_label: t.label,
-                price: t.price,
-                category: t.category,
-                attendee_name: "Peserta",
-              })),
-            e_ticket: {
-              successful_scan_count: 0,
-              valid_ticket_count: allTickets.length || 1,
-            },
+              activeOrder?.items && activeOrder.items.length > 0
+                ? activeOrder.items
+                : allTickets.map((t, idx) => ({
+                    id: `item-${idx + 1}`,
+                    seat_label: t.label,
+                    price: t.price,
+                    category: t.category,
+                    attendee_name: "Peserta",
+                  })),
           };
-          sessionStorage.setItem("summa_active_order", JSON.stringify(updated));
-
-          try {
-            const rawLocal = localStorage.getItem("summa_customer_orders");
-            const localList: Array<{ id?: string; order_code?: string }> = rawLocal
-              ? JSON.parse(rawLocal)
-              : [];
-            const filtered = localList.filter(
-              (o) => o.id !== updated.id && o.order_code !== updated.order_code
-            );
-            localStorage.setItem("summa_customer_orders", JSON.stringify([updated, ...filtered]));
-          } catch {
-            // Ignore storage quota
-          }
+          setActiveOrder(updated);
+          syncOrderStorage(updated);
           sessionStorage.setItem("summa_ticket_just_generated", "1");
         }
 
         // Navigate to E-Ticket with generated flag so WhatsApp alert only shows after generation
-        router.push(`/ticket/${event?.id || id}?generated=1`);
+        router.push(
+          `/ticket/${event?.id || resolvedEventId}?orderId=${encodeURIComponent(String(finalOrderId))}&generated=1`
+        );
       } else if (mode === "FAILED") {
         setOrderStatus("CANCELLED");
         clearLockTimer();
+        if (activeOrder) {
+          syncOrderStorage({
+            ...activeOrder,
+            status: "CANCELLED",
+            order_status: "CANCELLED",
+            payment_status: "FAILED",
+          });
+        }
+        await releaseHold(event?.id || resolvedEventId);
       } else if (mode === "EXPIRED") {
         setOrderStatus("EXPIRED");
         clearLockTimer();
+        if (activeOrder) {
+          syncOrderStorage({
+            ...activeOrder,
+            status: "EXPIRED",
+            order_status: "EXPIRED",
+            payment_status: "EXPIRED",
+          });
+        }
+        await releaseHold(event?.id || resolvedEventId);
       }
     }, 600);
   };
 
-  if (isLoading) {
+  // Release held seats (awaiting DELETE /api/events/:id/holds) BEFORE clearing active order and navigating
+  const handleRetryBooking = async () => {
+    if (isReleasing) return;
+    setIsReleasing(true);
+    try {
+      await releaseHold(event?.id || resolvedEventId);
+    } finally {
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("summa_active_order");
+      }
+      setIsReleasing(false);
+      router.push(`/event/${event?.id || resolvedEventId}/book`);
+    }
+  };
+
+  if (isLoading && !event) {
     return (
       <div className="page-container route-loading text-center py-16">
         <div className="w-8 h-8 border-3 border-[#D93A2F] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
@@ -377,13 +719,11 @@ function PaymentPageContent({ params }: PaymentPageProps) {
               </p>
               <button
                 type="button"
-                onClick={() => {
-                  resetBooking();
-                  router.push(`/event/${event.id}/book`);
-                }}
-                className="px-4 py-2 bg-[#D93A2F] text-white rounded-lg text-xs font-bold hover:bg-[#c23329] transition"
+                onClick={handleRetryBooking}
+                disabled={isReleasing}
+                className="px-4 py-2 bg-[#D93A2F] text-white rounded-lg text-xs font-bold hover:bg-[#c23329] disabled:opacity-50 transition"
               >
-                Pesan Ulang Tiket
+                {isReleasing ? "Melepaskan kursi..." : "Pesan Ulang Tiket"}
               </button>
             </div>
           ) : (
@@ -395,13 +735,11 @@ function PaymentPageContent({ params }: PaymentPageProps) {
               </p>
               <button
                 type="button"
-                onClick={() => {
-                  resetBooking();
-                  router.push(`/event/${event.id}/book`);
-                }}
-                className="px-4 py-2 bg-[#D93A2F] text-white rounded-lg text-xs font-bold hover:bg-[#c23329] transition"
+                onClick={handleRetryBooking}
+                disabled={isReleasing}
+                className="px-4 py-2 bg-[#D93A2F] text-white rounded-lg text-xs font-bold hover:bg-[#c23329] disabled:opacity-50 transition"
               >
-                Kembali ke Denah
+                {isReleasing ? "Melepaskan kursi..." : "Kembali ke Denah"}
               </button>
             </div>
           )}
@@ -418,7 +756,13 @@ function PaymentPageContent({ params }: PaymentPageProps) {
                 {isChecking ? "Memeriksa status..." : "Cek Status Pembayaran ↻"}
               </button>
               {statusMessage && (
-                <p className="text-[11px] text-stone-500 mt-2 italic">{statusMessage}</p>
+                <div
+                  role="status"
+                  className="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium flex items-center justify-center gap-2"
+                >
+                  <span>⏳</span>
+                  <span>{statusMessage}</span>
+                </div>
               )}
             </div>
           )}

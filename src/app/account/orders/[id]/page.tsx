@@ -8,6 +8,7 @@
 
 import React, { Suspense, useEffect, useState, use } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   fetchMyOrders,
   fetchMyOrder,
@@ -17,7 +18,9 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatRupiah, formatSeatDisplayName } from "@/lib/utils";
 import {
   formatIndonesianDateTime,
+  formatRemainingTime,
   checkHMinusOneCutoff,
+  getPaymentSecondsRemaining,
 } from "@/lib/time-utils";
 
 interface OrderDetailPageProps {
@@ -37,13 +40,23 @@ interface OrderDetailState {
   order_id?: string;
   id?: string | number;
   order_code?: string;
+  event_id?: string | number;
   order_status?: string;
   status?: string;
   payment_status?: string;
   refund_status?: string;
   refund_data_status?: string;
   created_at?: string;
+  expires_at?: string;
+  payment_expires_at?: string;
+  total_amount?: number;
+  ticket_count?: number;
   event_status?: string;
+  payment?: {
+    status?: string;
+    expires_at?: string;
+    created_at?: string;
+  };
   event?: {
     id?: string | number;
     name?: string;
@@ -53,6 +66,36 @@ interface OrderDetailState {
     status?: string;
   };
   items?: OrderDetailTicketItem[];
+}
+
+function findLocalMatchingOrder(targetId: string): OrderDetailState | null {
+  if (typeof window === "undefined") return null;
+  const candidates: OrderDetailState[] = [];
+  try {
+    const rawActive = sessionStorage.getItem("summa_active_order");
+    if (rawActive) {
+      const parsed = JSON.parse(rawActive);
+      if (parsed) candidates.push(parsed);
+    }
+  } catch {
+    // ignore
+  }
+  try {
+    const rawLocal = localStorage.getItem("summa_customer_orders");
+    if (rawLocal) {
+      const parsed = JSON.parse(rawLocal);
+      if (Array.isArray(parsed)) candidates.push(...parsed);
+    }
+  } catch {
+    // ignore
+  }
+  return (
+    candidates.find(
+      (o) =>
+        String(o.id || o.order_id || "") === String(targetId) ||
+        String(o.order_code || "") === String(targetId)
+    ) || null
+  );
 }
 
 export default function OrderDetailPage({ params }: OrderDetailPageProps) {
@@ -72,10 +115,12 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
 
 function OrderDetailContent({ params }: OrderDetailPageProps) {
   const { id } = use(params);
+  const router = useRouter();
 
   const [order, setOrder] = useState<OrderDetailState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [, setTimerTick] = useState<number>(0);
 
   // Name Change Modal State
   const [editingTicket, setEditingTicket] = useState<{ id: string; name: string } | null>(null);
@@ -93,9 +138,18 @@ function OrderDetailContent({ params }: OrderDetailPageProps) {
   const [refundSubmitted, setRefundSubmitted] = useState(false);
 
   useEffect(() => {
+    const localMatch = findLocalMatchingOrder(id);
+
     fetchMyOrder(id)
       .then((res) => {
-        setOrder(res.data as unknown as OrderDetailState);
+        const apiOrder = res.data as unknown as OrderDetailState;
+        setOrder({
+          ...localMatch,
+          ...apiOrder,
+          created_at: apiOrder.created_at || localMatch?.created_at,
+          expires_at: apiOrder.expires_at || localMatch?.expires_at,
+          payment_expires_at: apiOrder.payment_expires_at || localMatch?.payment_expires_at,
+        });
       })
       .catch(async () => {
         // Fallback: look in list
@@ -110,43 +164,56 @@ function OrderDetailContent({ params }: OrderDetailPageProps) {
               String(o.order_code) === String(id)
           );
           if (found) {
-            setOrder(found);
+            setOrder({
+              ...localMatch,
+              ...found,
+              created_at: found.created_at || localMatch?.created_at,
+              expires_at: found.expires_at || localMatch?.expires_at,
+              payment_expires_at: found.payment_expires_at || localMatch?.payment_expires_at,
+            });
             return;
           }
         } catch {
           // Continue to local storage check
         }
 
-        // Check local storage fallback for simulated orders
-        if (typeof window !== "undefined") {
-          try {
-            const rawLocal = localStorage.getItem("summa_customer_orders");
-            const localOrders: OrderDetailState[] = rawLocal ? JSON.parse(rawLocal) : [];
-            const rawActive = sessionStorage.getItem("summa_active_order");
-            if (rawActive) {
-              const active = JSON.parse(rawActive);
-              if (active) localOrders.push(active);
-            }
-
-            const localFound = localOrders.find(
-              (o) =>
-                String(o.id || o.order_id) === String(id) ||
-                String(o.order_code) === String(id)
-            );
-
-            if (localFound) {
-              setOrder(localFound);
-              return;
-            }
-          } catch {
-            // Ignore parse error
-          }
+        if (localMatch) {
+          setOrder(localMatch);
+          return;
         }
 
         setError("Pesanan tidak ditemukan.");
       })
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Live countdown ticker for UNPAID / PENDING orders
+  useEffect(() => {
+    if (!order) return;
+    const rawOrderStatus = String(order.order_status || order.status || "PAID").toUpperCase();
+    const rawPaymentStatus = String(
+      order.payment_status || order.payment?.status || rawOrderStatus
+    ).toUpperCase();
+    const isPending =
+      rawOrderStatus === "UNPAID" ||
+      rawOrderStatus === "PENDING" ||
+      rawPaymentStatus === "UNPAID" ||
+      rawPaymentStatus === "PENDING";
+
+    if (!isPending || rawOrderStatus === "PAID" || rawPaymentStatus === "PAID" || rawPaymentStatus === "SUCCESS") {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const rem = getPaymentSecondsRemaining(order);
+      setTimerTick((prev) => prev + 1);
+      if (rem <= 0) {
+        clearInterval(interval);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [order]);
 
   if (loading) {
     return (
@@ -172,9 +239,58 @@ function OrderDetailContent({ params }: OrderDetailPageProps) {
   }
 
   const orderId = order.order_id || order.id || id;
-  const eventId = order.event?.id || "EVT-ATR-001";
+  const eventId = order.event?.id || order.event_id || "EVT-ATR-001";
   const eventStartDate = order.event?.start_at || order.event?.event_date || "2026-12-20T10:00:00";
   const isCancelled = order.event_status === "CANCELLED" || order.event?.status === "CANCELLED";
+
+  // Normalize order and payment statuses
+  const rawOrderStatus = String(order.order_status || order.status || "PAID").toUpperCase();
+  const rawPaymentStatus = String(
+    order.payment_status ||
+      order.payment?.status ||
+      (rawOrderStatus === "PAID" ? "SUCCESS" : rawOrderStatus)
+  ).toUpperCase();
+
+  const isOrderPaid =
+    rawOrderStatus === "PAID" ||
+    rawOrderStatus === "SUCCESS" ||
+    rawPaymentStatus === "PAID" ||
+    rawPaymentStatus === "SUCCESS";
+
+  const isUnpaidOrPending =
+    !isOrderPaid &&
+    (rawOrderStatus === "UNPAID" ||
+      rawOrderStatus === "PENDING" ||
+      rawPaymentStatus === "UNPAID" ||
+      rawPaymentStatus === "PENDING");
+
+  const currentRemainingSec = isUnpaidOrPending
+    ? getPaymentSecondsRemaining(order)
+    : 0;
+  const isPaymentWindowActive = isUnpaidOrPending && currentRemainingSec > 0;
+
+  const effectiveOrderStatus = isOrderPaid
+    ? "PAID"
+    : isUnpaidOrPending && currentRemainingSec <= 0
+      ? "EXPIRED"
+      : rawOrderStatus;
+
+  const effectivePaymentStatus = isOrderPaid
+    ? "SUCCESS"
+    : isUnpaidOrPending && currentRemainingSec <= 0
+      ? "EXPIRED"
+      : rawPaymentStatus;
+
+  const handleContinuePayment = () => {
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.setItem("summa_active_order", JSON.stringify(order));
+      } catch {
+        // ignore
+      }
+    }
+    router.push(`/payment/${orderId}`);
+  };
 
   // Check H-1 cutoff for name change & participant refund
   const cutoff = checkHMinusOneCutoff(eventStartDate);
@@ -189,7 +305,7 @@ function OrderDetailContent({ params }: OrderDetailPageProps) {
           category: "Premium",
           attendee_name: "Nadia Putri",
           price: 350000,
-          status: "ISSUED",
+          status: isOrderPaid ? "ISSUED" : effectiveOrderStatus,
         },
       ];
 
@@ -197,13 +313,33 @@ function OrderDetailContent({ params }: OrderDetailPageProps) {
     e.preventDefault();
     if (!editingTicket || !newName.trim()) return;
 
-    // Update in local state
+    // Update in local state and sync storage
     setOrder((prev) => {
       if (!prev) return null;
       const nextItems = prev.items?.map((it) =>
-        it.id === editingTicket.id ? { ...it, attendee_name: newName } : it
+        it.id === editingTicket.id
+          ? { ...it, attendee_name: newName, participant_name: newName }
+          : it
       ) || [{ ...ticketItems[0], attendee_name: newName }];
-      return { ...prev, items: nextItems };
+      const updated = { ...prev, items: nextItems };
+
+      if (typeof window !== "undefined") {
+        try {
+          sessionStorage.setItem("summa_active_order", JSON.stringify(updated));
+          const rawLocal = localStorage.getItem("summa_customer_orders");
+          const localList: OrderDetailState[] = rawLocal ? JSON.parse(rawLocal) : [];
+          const filtered = localList.filter(
+            (o) =>
+              String(o.id || o.order_id || "") !== String(updated.id || updated.order_id || "") &&
+              (!updated.order_code || o.order_code !== updated.order_code)
+          );
+          localStorage.setItem("summa_customer_orders", JSON.stringify([updated, ...filtered]));
+        } catch {
+          // ignore
+        }
+      }
+
+      return updated;
     });
 
     setNameChangeSuccess(true);
@@ -273,25 +409,75 @@ function OrderDetailContent({ params }: OrderDetailPageProps) {
           </p>
         </div>
 
-        {order.order_status === "PAID" && (
+        {isOrderPaid && (
           <Link
-            href={`/ticket/${eventId}`}
+            href={`/ticket/${eventId}?orderId=${encodeURIComponent(String(orderId))}`}
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                try {
+                  sessionStorage.setItem("summa_active_order", JSON.stringify(order));
+                } catch {
+                  // ignore
+                }
+              }
+            }}
             className="px-5 py-2.5 bg-[#D93A2F] text-white text-xs font-bold rounded-xl hover:bg-[#c23329] transition shadow-sm"
           >
             Buka E-Ticket QR →
           </Link>
         )}
+
+        {isPaymentWindowActive && (
+          <button
+            type="button"
+            onClick={handleContinuePayment}
+            className="px-5 py-2.5 bg-[#D93A2F] text-white text-xs font-bold rounded-xl hover:bg-[#c23329] active:scale-[0.99] transition shadow-sm inline-flex items-center gap-2"
+          >
+            <span>Lanjutkan Pembayaran</span>
+            <span className="font-mono bg-white/20 px-2 py-0.5 rounded-md text-[11px]">
+              {formatRemainingTime(currentRemainingSec)}
+            </span>
+            <span>→</span>
+          </button>
+        )}
       </div>
+
+      {/* Pending Payment Callout Banner */}
+      {isPaymentWindowActive && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-sm">⏳</span>
+              <h3 className="text-xs sm:text-sm font-bold text-amber-950">
+                Menunggu Pembayaran QRIS
+              </h3>
+              <span className="font-mono text-xs font-extrabold text-[#D93A2F] bg-white border border-amber-300 px-2 py-0.5 rounded-md">
+                Sisa {formatRemainingTime(currentRemainingSec)}
+              </span>
+            </div>
+            <p className="text-xs text-amber-900/80">
+              Pesananmu belum dibayar. Segera selesaikan pembayaran QRIS sebelum batas waktu 7 menit berakhir agar kursimu tidak dilepas.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleContinuePayment}
+            className="px-4 py-2.5 bg-[#D93A2F] text-white text-xs font-bold rounded-xl hover:bg-[#c23329] transition shadow-sm shrink-0 text-center"
+          >
+            Lanjutkan Pembayaran →
+          </button>
+        </div>
+      )}
 
       {/* Status Highlights Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         <div className="p-3.5 bg-white border border-stone-200 rounded-xl shadow-2xs">
           <span className="text-[11px] font-medium text-stone-500 block mb-1">Status Pesanan</span>
-          <StatusBadge status={order.order_status || "PAID"} size="sm" />
+          <StatusBadge status={effectiveOrderStatus} size="sm" />
         </div>
         <div className="p-3.5 bg-white border border-stone-200 rounded-xl shadow-2xs">
           <span className="text-[11px] font-medium text-stone-500 block mb-1">Status Pembayaran</span>
-          <StatusBadge status={order.payment_status || "SUCCESS"} size="sm" />
+          <StatusBadge status={effectivePaymentStatus} size="sm" />
         </div>
         <div className="p-3.5 bg-white border border-stone-200 rounded-xl shadow-2xs">
           <span className="text-[11px] font-medium text-stone-500 block mb-1">Status Refund</span>
@@ -394,7 +580,7 @@ function OrderDetailContent({ params }: OrderDetailPageProps) {
                     <span className="font-medium bg-stone-200 text-stone-700 px-2 py-0.5 rounded-full text-[11px] whitespace-nowrap shrink-0">
                       {item.category || "Reguler"}
                     </span>
-                    <StatusBadge status={item.status || "ISSUED"} size="sm" className="whitespace-nowrap shrink-0" />
+                    <StatusBadge status={item.status || (isOrderPaid ? "ISSUED" : effectiveOrderStatus)} size="sm" className="whitespace-nowrap shrink-0" />
                   </div>
                   <div className="text-stone-600">
                     Nama Peserta: <strong className="text-stone-900">{attendee}</strong>

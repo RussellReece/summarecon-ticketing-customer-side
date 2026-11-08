@@ -3,7 +3,7 @@
 **Dokumen Referensi:** `FIX DOKUMEN ANALISIS AWAL SISTEM_104621.pdf` & `AGENT_GUIDE_FINAL_v4_Flow_Denah_API-Terkunci.md`  
 **Repositori:** `summarecon-ticketing-customer-side` (Next.js 16.4.5 + React 19 + TypeScript + Tailwind CSS + Turbopack)  
 **Lingkungan Live API:** `https://summarecon-admin.axtra.tech/api` (Backend Admin Terkunci / Live SQLite Database)  
-**Terakhir Diperbarui:** 8 November 2026 — Fase 8 (*Production Ready & Verified*)  
+**Terakhir Diperbarui:** 8 November 2026 — Fase 10 (*Production Ready & Verified*)  
 **Tujuan Dokumen:** Catatan lengkap seluruh progres pengembangan dari awal hingga kondisi terkini, arsitektur data, alur bisnis, integrasi API, serta temuan dan solusi teknis sebagai konteks utama (*master context*) bagi tim engineer maupun sistem AI Generatif lain.
 
 > **⚠️ INSTRUKSI WAJIB (STANDING RULE UNTUK AI GENERATIF):**  
@@ -118,6 +118,56 @@ Aplikasi telah bertransformasi penuh dari prototipe berbasis mock data menjadi a
      1. Menyimpan `releasedSeatIds` secara persisten di `sessionStorage` (`summa_released_seats`) melalui `saveReleasedToSession()` dan `loadReleasedFromSession()`, serta mengekspansi seluruh variasi ID kursi (`expandSeatIdentifiers`: `ATR-A-06`, `A06`, `A-06`) secara sinkron di awal `releaseHold()` sebelum navigasi kembali ke denah.
      2. Memastikan `setEvent()` dan `toggleSeat()` tidak pernah menghapus `releasedSeatIds` (hanya dihapus kembali jika kursi tersebut berhasil dikunci ulang melalui `createHold()`).
      3. Menerapkan *local override* berlapis di `SeatMap.tsx` dan `VenueRenderer.tsx`: jika kursi ada di `releasedSeatIds` **DAN** status API adalah `"LOCKED"` / `"HELD"`, statusnya diubah menjadi `"AVAILABLE"` (bisa dipilih lagi), namun **tidak pernah** menimpa kursi berstatus `"SOLD"` atau `"BLOCKED"`.
+
+### Fase 9: Perbaikan Pelepasan Kursi Saat Pembayaran Gagal atau Kedaluwarsa (`PaymentPageClient.tsx` & `useBookingStore.ts`)
+1. **Akar Masalah**:
+   - Di halaman Pembayaran QRIS (`/payment/:id`), ketika transaksi berstatus **Pembayaran Gagal** (`FAILED`) atau **Waktu Pembayaran Kedaluwarsa** (`EXPIRED`) dan pengguna menekan tombol **"Pesan Ulang Tiket"** atau **"Kembali ke Denah"**, *handler* tombol sebelumnya hanya memanggil `resetBooking()` alih-alih `releaseHold(event.id)`.
+   - `resetBooking()` mengosongkan `selectedSeats` dan `heldSeatIds` tanpa memindahkan ID kursi tersebut ke dalam `releasedSeatIds`, sehingga saat pengguna kembali ke `/event/:id/book`, kursi masih tampil berstatus **Ditahan** (warna kuning / `LOCKED`).
+2. **Solusi Teknis**:
+   - Mengganti aksi tombol **"Pesan Ulang Tiket"** dan **"Kembali ke Denah"** di `src/app/payment/[id]/PaymentPageClient.tsx` menjadi `handleRetryBooking()`, yang memanggil `await releaseHold(event?.id || id)`, menghapus `summa_active_order`, lalu mengarahkan pengguna ke `/event/:id/book`.
+   - Memanggil `void releaseHold(event?.id || id)` secara otomatis begitu status pembayaran berubah menjadi `FAILED` atau `EXPIRED` (baik melalui simulator maupun saat timer 7 menit habis), sehingga meskipun pengguna menekan tombol *Back* bawaan browser, kursi tetap sudah masuk ke `releasedSeatIds`.
+   - Menambahkan `hydrateFromStorage()` saat `PaymentPageContent` di-*mount* serta fallback rincian tiket ke `activeOrder.items` agar ringkasan pesanan di kolom kanan tetap tampil utuh saat status pembayaran gagal/kedaluwarsa.
+   - Memperkuat `releaseHold()` di `src/lib/store/useBookingStore.ts` dengan fungsi `expandSeatKeyVariants()` dan `loadActiveOrderSeatKeys()` yang mengekstrak seluruh kemungkinan variasi ID kursi (`ATR-A-02`, `A-02`, `A02`) baik dari state Zustand, `summa_booking_state`, maupun `summa_active_order` di `sessionStorage`.
+
+### Fase 10: Urutan Eksekusi Sinkron-Asinkron `DELETE /api/events/:id/holds` (`keepalive: true`) & Persistensi Lintas-Navigasi
+1. **Akar Masalah**:
+   - Ketika pengguna membatalkan pembayaran di `/payment/:id` lalu kembali ke denah, keluar dari denah, dan masuk kembali ke denah, kursi berisiko kembali tampil sebagai `"Ditahan"` jika:
+     1. Pemanggilan `DELETE /api/events/:id/holds` dilakukan tanpa `await` (*fire-and-forget*) atau tanpa `keepalive: true`, sehingga dibatalkan (*aborted*) oleh browser saat berpindah halaman.
+     2. State `holdId` / `summa_booking_state` dihapus sebelum `releaseHolds()` selesai membaca `hold_id`, atau `hold_id` belum tersimpan di dalam `summa_active_order`.
+     3. Saat keluar dan masuk kembali ke rute denah yang sama (`state.eventId === eventId`), `setEvent()` dan `VenueRenderer.tsx` belum menggabungkan ulang `loadReleasedFromSession()`, atau browser memakai cache HTTP pada `GET /api/events/:id/seats`.
+2. **Solusi Teknis**:
+   - **Urutan Eksekusi Ketat di `useBookingStore.ts` (`releaseHold`) & `PaymentPageClient.tsx` (`handleRetryBooking`)**:
+     1. Menyimpan `hold_id`, `hold_ids`, dan `event_id` ke dalam `summa_active_order` saat order dibuat di `OrderPageClient.tsx`.
+     2. Mengekstrak `hold_id` / `holdIds` serta `seatIds` dari `state`, `summa_booking_state`, dan `summa_active_order` **sebelum** menghapus state/sessionStorage apa pun.
+     3. Memanggil `await releaseHolds(resolvedEventId, idsToRelease, rawSeatIdsToRelease)` dan **menunggu (`await`) hingga selesai** dengan penanganan error `try / catch`.
+     4. **Baru setelah** `await releaseHolds()` selesai, menyimpan `releasedSeatIds` ke `sessionStorage` + `localStorage` (dengan TTL 10 menit), menghapus `summa_booking_state` & `summa_active_order`, mereset state Zustand, dan mengeksekusi `router.push(/event/:id/book)`.
+   - **Konfigurasi `keepalive: true` & `cache: "no-store"` di `customerApi.ts`**:
+     - Menambahkan `keepalive: true` serta mengirimkan `{ hold_id, hold_ids, event_seat_ids, seat_ids }` pada `releaseHolds()` (`DELETE /api/events/:id/holds`) agar request tidak pernah di-*abort* oleh browser saat komponen *unmount*.
+     - Menambahkan `{ cache: "no-store" }` pada `fetchEventSeats()` (`GET /api/events/:id/seats`).
+   - **Sinkronisasi Penuh Saat Keluar-Masuk Denah**:
+     - Memperbarui `setEvent()` di `useBookingStore.ts`, `SeatMap.tsx`, dan `VenueRenderer.tsx` agar selalu menggabungkan `loadReleasedFromSession()` setiap kali masuk kembali ke halaman denah.
+
+11. **Fase 11 — Validasi Ketat "Cek Status Pembayaran", CTA "Lanjutkan Pembayaran", & Timer QRIS 7 Menit Persisten (Selesai)**:
+    - **Perbaikan Handler "Cek Status Pembayaran" (`src/app/payment/[id]/PaymentPageClient.tsx`)**:
+      - Memperbaiki pencarian pesanan pada `handleCheckStatus` agar mencocokkan secara spesifik berdasarkan `id` / `order_id` / `order_code` dari `activeOrder` saat ini (dan memanggil `fetchMyOrder(targetOrderId)` terlebih dahulu), bukan mencocokkan pesanan lama milik user pada event yang sama (`String(o.event?.id) === String(id)`).
+      - Memperbaiki bug *operator precedence* pada evaluasi status pembayaran dan memastikan redirect ke `/ticket/:id?generated=1` **hanya** dieksekusi apabila status order/payment dari API benar-benar `"PAID"` atau `"SUCCESS"`.
+      - Jika status pesanan masih `"UNPAID"` atau `"PENDING"`, pengguna tetap berada di halaman pembayaran dan mendapatkan banner alert status (`role="status"`): *"Pembayaran belum diterima. Silakan selesaikan pembayaran melalui kode QRIS di atas."*
+    - **Penambahan Tombol "Lanjutkan Pembayaran" di Detail & Riwayat Pesanan (`src/app/account/orders/[id]/page.tsx` & `src/app/account/orders/page.tsx`)**:
+      - Menambahkan validasi kondisional untuk pesanan berstatus `"UNPAID"` atau `"PENDING"` yang belum kedaluwarsa (`getPaymentSecondsRemaining(order) > 0`).
+      - Menampilkan tombol CTA utama (`bg-[#D93A2F]`) **"Lanjutkan Pembayaran"** beserta indikator hitung mundur sisa waktu real-time dan banner informasi yang menyimpan kembali pesanan ke `summa_active_order` lalu mengarahkan pengguna ke `/payment/[orderId]`.
+      - Menambahkan penyimpanan pesanan `UNPAID` secara langsung ke `localStorage` (`summa_customer_orders`) saat order dibuat di `src/app/order/[id]/OrderPageClient.tsx` sehingga pesanan yang belum dibayar langsung tampil di Riwayat Pesanan dengan `created_at` dan `expires_at` yang akurat.
+    - **Persistensi Timer Pembayaran QRIS 7 Menit (420 Detik) Berbasis Timestamp (`src/lib/time-utils.ts` & `src/app/payment/[id]/PaymentPageClient.tsx`)**:
+      - Menambahkan fungsi `parseTimestampMs()`, `getPaymentExpiryTimestampMs()`, dan `getPaymentSecondsRemaining()` di `src/lib/time-utils.ts` yang menghitung sisa waktu secara deterministik menggunakan rumus `Sisa Waktu = Waktu Kedaluwarsa - Waktu Saat Ini` (dari `payment_expires_at` / `expires_at` atau `created_at + 7 menit`).
+      - Mengganti state statis `useState(420)` di `PaymentPageClient.tsx` dengan kalkulasi real-time terhadap timestamp kedaluwarsa absolut sehingga timer tidak pernah tereset ke `07:00` atau hilang saat pengguna berpindah halaman (misal ke Riwayat Pesanan lalu kembali ke halaman Pembayaran).
+
+12. **Fase 12 — Perbaikan Tombol Pembayaran *Stuck* pada Form Pesanan & Data Kursi E-Ticket Dinamis (Selesai)**:
+    - **Perbaikan Tombol *Stuck* & Reuse Order Aktif (`src/app/order/[id]/OrderPageClient.tsx`)**:
+      - Menambahkan blok `finally { setIsSubmitting(false); }` pada `handleSubmitOrder` serta listener event `pageshow`, `popstate`, dan `visibilitychange` di `useEffect` agar state loading tombol **"Lanjut ke Pembayaran QRIS →"** selalu ter-reset saat pengguna melakukan navigasi mundur (Back) dari halaman QRIS ke halaman Data Peserta.
+      - Menambahkan logika cerdas: apabila di `sessionStorage` (`summa_active_order`) sudah terdapat pesanan aktif berstatus `"UNPAID"` / `"PENDING"` yang belum kedaluwarsa untuk event dan hold kursi yang sama, klik tombol submit akan memperbarui data `buyer` serta `items` pada pesanan tersebut lalu langsung menavigasi ke `router.push('/payment/' + existingOrderId)` tanpa memanggil `createOrder()` ulang.
+    - **Perbaikan *Data Binding* Dinamis pada E-Ticket (`src/app/ticket/[id]/TicketPageClient.tsx` & `src/lib/utils.ts`)**:
+      - Menghapus teks *hardcoded* (`"Blok A · Baris A · Kursi 01"`) dan memperbaiki pencarian order di `TicketPageClient.tsx` agar mencocokkan `orderId` / `order_code` secara spesifik (tidak lagi tertimpa oleh order lama `ORD-2026-0008` akibat pencocokan `event.id` semata).
+      - Memetakan bagian `Daftar Peserta & Tempat Duduk` (`attendeeItems`) secara langsung dari `orderDetails.items` dengan memformat posisi kursi menggunakan `formatSeatDisplayName(item.seat ? { ...item, ...item.seat } : item)`.
+      - Memperkaya `formatSeatDisplayName()` di `src/lib/utils.ts` agar mendukung objek bersarang `item.seat`, `event_seat_id`, `seat_id`, kode venue (`ATR`, `SWG`, `DWT`), dan label kursi yang sudah terformat tanpa duplikasi kata `"Kursi"`.
 
 ---
 

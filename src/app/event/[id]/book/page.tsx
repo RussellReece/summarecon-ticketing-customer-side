@@ -103,7 +103,7 @@ function BookingPageContent({ params }: BookingPageProps) {
 
       // 2. Create atomic hold (10 min timer)
       const userId = currentUser?.user_id || currentUser?.id || "USR-CUS-001";
-      const result = await createHoldAction(id, String(userId));
+      const result = await createHoldAction(event.id || id, String(userId));
 
       if (result.success) {
         startTransition(() => {

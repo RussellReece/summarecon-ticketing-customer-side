@@ -419,7 +419,12 @@ export function SeatMap({ event }: SeatMapProps) {
         }
 
         apiSeatsRef.current = effectiveSeats;
-        const currentReleased = useBookingStore.getState().releasedSeatIds;
+        const currentReleased = Array.from(
+          new Set([
+            ...useBookingStore.getState().releasedSeatIds,
+            ...loadReleasedFromSession(),
+          ])
+        );
         setVenueSeats(
           mapRawSeatsToVenueSeats(effectiveSeats, currentEvent, currentReleased)
         );
@@ -453,7 +458,12 @@ export function SeatMap({ event }: SeatMapProps) {
 
       if (freshSeats.length > 0) {
         apiSeatsRef.current = freshSeats;
-        const currentReleased = useBookingStore.getState().releasedSeatIds;
+        const currentReleased = Array.from(
+          new Set([
+            ...useBookingStore.getState().releasedSeatIds,
+            ...loadReleasedFromSession(),
+          ])
+        );
         setVenueSeats(
           mapRawSeatsToVenueSeats(freshSeats, eventRef.current, currentReleased)
         );

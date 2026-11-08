@@ -21,6 +21,7 @@ export interface Seat {
   category: string;
   price: number;
   area: string; // <-- Tambahkan baris ini
+  block?: string;
   status?: string; // (Bila ada properti lain, biarkan saja)
 }
 

@@ -8,13 +8,14 @@
 "use client";
 
 import { useState, useEffect, Suspense, use } from "react";
-import { useRouter, notFound } from "next/navigation";
+import { useRouter, usePathname, notFound } from "next/navigation";
 import { useBookingStore } from "@/lib/store/useBookingStore";
 import CountdownTimer from "@/components/shared/CountdownTimer";
 import { cacheLiveEvent, getEventById } from "@/lib/data/events";
 import { fetchEvent, fetchMe, createOrder, type CreateOrderPayload } from "@/services/customerApi";
 import type { TicketEvent } from "@/types/event";
 import { formatRupiah, formatSeatDisplayName } from "@/lib/utils";
+import { getPaymentSecondsRemaining } from "@/lib/time-utils";
 
 interface OrderPageProps {
   params: Promise<{ id: string }>;
@@ -38,6 +39,7 @@ export default function OrderPageClient({ params }: OrderPageProps) {
 function OrderForm({ params }: OrderPageProps) {
   const { id } = use(params);
   const router = useRouter();
+  const pathname = usePathname();
 
   const [event, setEvent] = useState<TicketEvent | null>(() => getEventById(id) || null);
   const [isLoading, setIsLoading] = useState(!event);
@@ -49,6 +51,7 @@ function OrderForm({ params }: OrderPageProps) {
     selectedSeats,
     quotaItems,
     holdId,
+    holdIds,
     timeLeft,
     releaseHold,
     setBuyerInfo: saveBuyerToStore,
@@ -58,10 +61,24 @@ function OrderForm({ params }: OrderPageProps) {
     hydrateFromStorage,
   } = useBookingStore();
 
-  // Restore store state from session storage on mount
+  // Restore store state from session storage on mount and reset stuck loading state on Back navigation
   useEffect(() => {
     hydrateFromStorage();
-  }, [hydrateFromStorage]);
+
+    const handlePageRestore = () => {
+      setIsSubmitting(false);
+    };
+
+    window.addEventListener("pageshow", handlePageRestore);
+    window.addEventListener("popstate", handlePageRestore);
+    document.addEventListener("visibilitychange", handlePageRestore);
+
+    return () => {
+      window.removeEventListener("pageshow", handlePageRestore);
+      window.removeEventListener("popstate", handlePageRestore);
+      document.removeEventListener("visibilitychange", handlePageRestore);
+    };
+  }, [hydrateFromStorage, pathname]);
 
   // Load event details if needed
   useEffect(() => {
@@ -114,10 +131,13 @@ function OrderForm({ params }: OrderPageProps) {
   const totalCount =
     selectedSeats.length + quotaList.reduce((acc, q) => acc + q.count, 0);
 
-  // Flat list of ticket participant entries
+  // Flat list of ticket participant entries with full seat metadata
   const allTicketEntries = [
     ...selectedSeats.map((s, idx) => ({
       key: s.id,
+      row: s.row,
+      number: s.number,
+      block: s.block || (s.number <= 5 ? "Blok A" : "Blok B"),
       label: formatSeatDisplayName(s),
       category: s.category,
       price: s.price,
@@ -126,6 +146,9 @@ function OrderForm({ params }: OrderPageProps) {
     ...quotaList.flatMap((q) =>
       Array.from({ length: q.count }, (_, i) => ({
         key: `${q.sectionId}-${i + 1}`,
+        row: undefined,
+        number: undefined,
+        block: q.sectionName,
         label: `${q.sectionName} (#${i + 1})`,
         category: q.categoryName,
         price: q.price,
@@ -173,6 +196,7 @@ function OrderForm({ params }: OrderPageProps) {
   // Submit Order & Proceed to Payment
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setSubmitError(null);
     setIsSubmitting(true);
 
@@ -183,7 +207,105 @@ function OrderForm({ params }: OrderPageProps) {
       phoneNumber: buyer.phone,
     });
 
+    const normalizedItems = allTicketEntries.map((t) => {
+      const attendeeName = participants[t.key] || buyer.name || "Peserta";
+      return {
+        id: t.key,
+        seat_id: t.key,
+        event_seat_id: t.key,
+        seat_label: t.label,
+        row_label: t.row,
+        seat_number: t.number,
+        block: t.block,
+        attendee_name: attendeeName,
+        participant_name: attendeeName,
+        price: t.price,
+        category: t.category,
+        seat: {
+          id: t.key,
+          seat_id: t.key,
+          event_seat_id: t.key,
+          seat_label: t.label,
+          row: t.row,
+          row_label: t.row,
+          number: t.number,
+          seat_number: t.number,
+          block: t.block,
+          category: t.category,
+        },
+      };
+    });
+
     try {
+      // Smart check: if an active UNPAID/PENDING order already exists in sessionStorage for this event/hold,
+      // update its buyer & items and navigate directly to /payment/:orderId instead of recreating the order.
+      if (typeof window !== "undefined") {
+        try {
+          const rawExisting = sessionStorage.getItem("summa_active_order");
+          if (rawExisting) {
+            const existingOrder = JSON.parse(rawExisting) as Record<string, unknown>;
+            const existingStatus = String(
+              existingOrder.order_status || existingOrder.status || ""
+            ).toUpperCase();
+            const existingEventId = String(
+              existingOrder.event_id ||
+                (existingOrder.event as { id?: string | number } | undefined)?.id ||
+                ""
+            );
+            const isSameEvent =
+              existingEventId === String(event?.id || id) || existingEventId === String(id);
+            const isSameHold =
+              !holdId || !existingOrder.hold_id || String(existingOrder.hold_id) === String(holdId);
+            const isStillUnpaid =
+              (existingStatus === "UNPAID" || existingStatus === "PENDING") &&
+              getPaymentSecondsRemaining(existingOrder as { expires_at?: string; created_at?: string }) > 0;
+
+            if (isSameEvent && isSameHold && isStillUnpaid) {
+              const updatedExistingOrder: Record<string, unknown> = {
+                ...existingOrder,
+                buyer: {
+                  full_name: buyer.name || "Nadia Putri",
+                  email: buyer.email || "nadia.demo@example.test",
+                  phone_number: buyer.phone || "+628110000101",
+                },
+                seat_ids: selectedSeats.map((s) => s.id),
+                items: normalizedItems,
+                total_amount: totalPrice,
+                ticket_count: allTicketEntries.length,
+              };
+
+              sessionStorage.setItem("summa_active_order", JSON.stringify(updatedExistingOrder));
+              try {
+                const rawLocal = localStorage.getItem("summa_customer_orders");
+                const localList: Array<{ id?: string; order_id?: string; order_code?: string }> =
+                  rawLocal ? JSON.parse(rawLocal) : [];
+                const filtered = localList.filter(
+                  (o) =>
+                    String(o.id || o.order_id) !==
+                      String(updatedExistingOrder.id || updatedExistingOrder.order_id) &&
+                    (!updatedExistingOrder.order_code ||
+                      o.order_code !== updatedExistingOrder.order_code)
+                );
+                localStorage.setItem(
+                  "summa_customer_orders",
+                  JSON.stringify([updatedExistingOrder, ...filtered])
+                );
+              } catch {
+                // Ignore storage quota errors
+              }
+
+              const targetPaymentId = String(
+                updatedExistingOrder.id || updatedExistingOrder.order_id || id
+              );
+              router.push(`/payment/${targetPaymentId}`);
+              return;
+            }
+          }
+        } catch {
+          // Ignore parse errors and proceed to create order
+        }
+      }
+
       const orderPayload: CreateOrderPayload = {
         event_id: id,
         hold_id: holdId,
@@ -202,60 +324,147 @@ function OrderForm({ params }: OrderPageProps) {
         })),
       };
 
+      const nowMs = Date.now();
+      const defaultCreatedAt = new Date(nowMs).toISOString();
+      const defaultExpiresAt = new Date(nowMs + 7 * 60 * 1000).toISOString();
+
       let createdOrder: Record<string, unknown> | null = null;
       try {
         const orderRes = await createOrder(orderPayload);
+        const resData = (orderRes.data || {}) as unknown as Record<string, unknown>;
+        const resolvedId = String(resData.id || resData.order_id || `ORD-${nowMs}`);
+        const resolvedCode = String(resData.order_code || `ORD-${nowMs.toString().slice(-6)}`);
+        const resolvedStatus = String(resData.order_status || resData.status || "UNPAID");
+        const resolvedPaymentStatus = String(
+          resData.payment_status ||
+            (resData.payment as { status?: string } | undefined)?.status ||
+            "UNPAID"
+        );
+        const resolvedCreatedAt = String(resData.created_at || defaultCreatedAt);
+        const resolvedExpiresAt = String(
+          resData.payment_expires_at ||
+            resData.expires_at ||
+            (resData.payment as { expires_at?: string } | undefined)?.expires_at ||
+            defaultExpiresAt
+        );
+
+        const apiItems = Array.isArray(resData.items)
+          ? (resData.items as Array<Record<string, unknown>>)
+          : [];
+        const mergedItems =
+          apiItems.length > 0
+            ? apiItems.map((apiItem, idx) => ({
+                ...normalizedItems[idx],
+                ...apiItem,
+                seat_label:
+                  (apiItem.seat_label as string | undefined) || normalizedItems[idx]?.seat_label,
+                attendee_name:
+                  (apiItem.attendee_name as string | undefined) ||
+                  (apiItem.participant_name as string | undefined) ||
+                  normalizedItems[idx]?.attendee_name,
+                category:
+                  (apiItem.category as string | undefined) || normalizedItems[idx]?.category,
+                seat: {
+                  ...(normalizedItems[idx]?.seat || {}),
+                  ...((apiItem.seat as Record<string, unknown> | undefined) || {}),
+                },
+              }))
+            : normalizedItems;
+
         createdOrder = {
-          ...(orderRes.data as unknown as Record<string, unknown>),
+          ...resData,
+          id: resolvedId,
+          order_id: resolvedId,
+          order_code: resolvedCode,
+          event_id: event?.id || id,
+          hold_id: holdId,
+          hold_ids: holdIds,
+          status: resolvedStatus,
+          order_status: resolvedStatus,
+          payment_status: resolvedPaymentStatus,
+          total_amount: Number(resData.total_amount ?? totalPrice),
+          ticket_count: Number(resData.ticket_count ?? allTicketEntries.length),
+          created_at: resolvedCreatedAt,
+          expires_at: resolvedExpiresAt,
+          payment_expires_at: resolvedExpiresAt,
           buyer: orderPayload.buyer,
+          event: (resData.event as Record<string, unknown> | undefined) || {
+            id: event?.id || id,
+            name: event?.title || "Bandung Tech & Creative Expo",
+            title: event?.title || "Bandung Tech & Creative Expo",
+            start_at: event?.dateISO || defaultCreatedAt,
+            status: event?.badge || "SALES_OPEN",
+          },
+          seat_ids: Array.isArray(resData.seat_ids) && resData.seat_ids.length > 0
+            ? resData.seat_ids
+            : selectedSeats.map((s) => s.id),
+          items: mergedItems,
         };
       } catch {
         // Fallback (ACR-03): Create local simulated order for seamless testing
+        const simId = `ORD-SIM-${nowMs}`;
         createdOrder = {
-          id: `ORD-SIM-${Date.now()}`,
-          order_id: `ORD-SIM-${Date.now()}`,
-          order_code: `ORD-${Date.now().toString().slice(-6)}`,
-          status: "PENDING",
-          order_status: "PENDING",
+          id: simId,
+          order_id: simId,
+          order_code: `ORD-${nowMs.toString().slice(-6)}`,
+          event_id: event?.id || id,
+          hold_id: holdId,
+          hold_ids: holdIds,
+          status: "UNPAID",
+          order_status: "UNPAID",
           payment_status: "UNPAID",
           total_amount: totalPrice,
           ticket_count: allTicketEntries.length,
-          created_at: new Date().toISOString(),
+          created_at: defaultCreatedAt,
+          expires_at: defaultExpiresAt,
+          payment_expires_at: defaultExpiresAt,
           buyer: orderPayload.buyer,
           event: {
             id: event?.id || id,
             name: event?.title || "Bandung Tech & Creative Expo",
             title: event?.title || "Bandung Tech & Creative Expo",
-            start_at: event?.dateISO || new Date().toISOString(),
+            start_at: event?.dateISO || defaultCreatedAt,
             status: event?.badge || "SALES_OPEN",
           },
           seat_ids: selectedSeats.map((s) => s.id),
-          items: allTicketEntries.map((t) => ({
-            id: t.key,
-            seat_label: t.label,
-            attendee_name: participants[t.key] || buyer.name,
-            price: t.price,
-            category: t.category,
-          })),
+          items: normalizedItems,
         };
       }
 
-      // Save active order details to sessionStorage
-      if (typeof window !== "undefined") {
+      // Save active order details to sessionStorage and localStorage order history
+      if (typeof window !== "undefined" && createdOrder) {
         sessionStorage.setItem("summa_active_order", JSON.stringify(createdOrder));
+        try {
+          const rawLocal = localStorage.getItem("summa_customer_orders");
+          const localList: Array<{ id?: string; order_id?: string; order_code?: string }> = rawLocal
+            ? JSON.parse(rawLocal)
+            : [];
+          const filtered = localList.filter(
+            (o) =>
+              String(o.id || o.order_id) !== String(createdOrder?.id || createdOrder?.order_id) &&
+              (!createdOrder?.order_code || o.order_code !== createdOrder.order_code)
+          );
+          localStorage.setItem(
+            "summa_customer_orders",
+            JSON.stringify([createdOrder, ...filtered])
+          );
+        } catch {
+          // Ignore storage quota errors
+        }
       }
 
       router.push(`/payment/${id}`);
     } catch (err: unknown) {
       const errObj = err as { message?: string };
       setSubmitError(errObj?.message || "Gagal membuat pesanan. Silakan coba lagi.");
+    } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleConfirmBack = async () => {
     setShowBackConfirm(false);
-    await releaseHold(id);
+    await releaseHold(event?.id || id);
     router.push(`/event/${id}/book`);
   };
 

@@ -49,26 +49,146 @@ interface TicketQRState {
   status_summary?: string;
 }
 
+interface TicketOrderItem {
+  id?: string | number;
+  seat_id?: string | number;
+  event_seat_id?: string | number;
+  seat_label?: string;
+  label?: string;
+  row?: string;
+  row_label?: string;
+  number?: number | string;
+  seat_number?: number | string;
+  block?: string;
+  block_code?: string;
+  category?: string;
+  category_name?: string;
+  attendee_name?: string;
+  participant_name?: string;
+  price?: number;
+  seat?: {
+    id?: string | number;
+    seat_id?: string | number;
+    event_seat_id?: string | number;
+    seat_label?: string;
+    label?: string;
+    row?: string;
+    row_label?: string;
+    number?: number | string;
+    seat_number?: number | string;
+    block?: string;
+    block_code?: string;
+    category?: string;
+  } | null;
+  ticket_category?: {
+    name?: string;
+    price?: number;
+  } | null;
+}
+
 interface TicketOrderState {
   id?: string;
   order_id?: string;
   order_code?: string;
+  event_id?: string | number;
+  status?: string;
+  order_status?: string;
   event_status?: string;
+  ticket_count?: number;
+  event?: {
+    id?: string | number;
+    name?: string;
+    title?: string;
+  };
   buyer?: {
     full_name?: string;
     email?: string;
     phone_number?: string;
   };
   buyer_phone?: string;
+  seat_ids?: Array<string | number>;
+  items?: TicketOrderItem[];
+}
+
+function findInitialTicketOrder(
+  routeId: string,
+  queryOrderId: string | null
+): TicketOrderState | null {
+  if (typeof window === "undefined") return null;
+
+  const targetOrderKey = queryOrderId || routeId;
+  let sessionOrder: TicketOrderState | null = null;
+
+  try {
+    const raw = sessionStorage.getItem("summa_active_order");
+    if (raw) {
+      sessionOrder = JSON.parse(raw) as TicketOrderState;
+    }
+  } catch {
+    // ignore
+  }
+
+  let localOrders: TicketOrderState[] = [];
+  try {
+    const rawLocal = localStorage.getItem("summa_customer_orders");
+    if (rawLocal) {
+      const parsed = JSON.parse(rawLocal);
+      if (Array.isArray(parsed)) {
+        localOrders = parsed as TicketOrderState[];
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  const allCandidates = sessionOrder ? [sessionOrder, ...localOrders] : localOrders;
+
+  // 1. Exact match by orderId / order_code
+  const exactMatch = allCandidates.find(
+    (o) =>
+      String(o.id || "") === String(targetOrderKey) ||
+      String(o.order_id || "") === String(targetOrderKey) ||
+      String(o.order_code || "") === String(targetOrderKey)
+  );
+  if (exactMatch) return exactMatch;
+
+  // 2. If sessionOrder belongs to this event, prefer it
+  if (
+    sessionOrder &&
+    (String(sessionOrder.event?.id || "") === String(routeId) ||
+      String(sessionOrder.event_id || "") === String(routeId))
+  ) {
+    return sessionOrder;
+  }
+
+  // 3. Look in localOrders for the latest order for this event
+  const eventMatch = localOrders.find(
+    (o) =>
+      String(o.event?.id || "") === String(routeId) ||
+      String(o.event_id || "") === String(routeId)
+  );
+  if (eventMatch) return eventMatch;
+
+  return sessionOrder;
 }
 
 function TicketPageContent({ params }: TicketPageProps) {
   const { id } = use(params);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryOrderId = searchParams.get("orderId");
 
-  const [event, setEvent] = useState<TicketEvent | null>(() => getEventById(id) || null);
-  const [isLoading, setIsLoading] = useState(!event);
+  const [orderDetails, setOrderDetails] = useState<TicketOrderState | null>(() =>
+    findInitialTicketOrder(id, queryOrderId)
+  );
+
+  const resolvedEventId = String(
+    orderDetails?.event?.id || orderDetails?.event_id || id
+  );
+
+  const [fetchedEvent, setFetchedEvent] = useState<TicketEvent | null>(null);
+  const event = fetchedEvent || getEventById(resolvedEventId) || getEventById(id) || null;
+  const [isLoading, setIsLoading] = useState(() => !event);
   const [justGeneratedFromStorage] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
       return sessionStorage.getItem("summa_ticket_just_generated") === "1";
@@ -82,45 +202,41 @@ function TicketPageContent({ params }: TicketPageProps) {
     }
   }, []);
 
-  const [orderDetails, setOrderDetails] = useState<TicketOrderState | null>(() => {
-    if (typeof window !== "undefined") {
-      const raw = sessionStorage.getItem("summa_active_order");
-      if (raw) {
-        try {
-          return JSON.parse(raw);
-        } catch {
-          // ignore
-        }
-      }
-    }
-    return null;
-  });
-
   const [qrData, setQrData] = useState<TicketQRState | null>(null);
   const [qrLoading, setQrLoading] = useState(true);
 
   const selectedSeats = useBookingStore((s) => s.selectedSeats);
+  const quotaItems = useBookingStore((s) => s.quotaItems);
   const participantNames = useBookingStore((s) => s.participantNames);
   const buyerInfo = useBookingStore((s) => s.buyerInfo);
   const resetBooking = useBookingStore((s) => s.resetBooking);
+  const hydrateFromStorage = useBookingStore((s) => s.hydrateFromStorage);
+
+  useEffect(() => {
+    hydrateFromStorage();
+  }, [hydrateFromStorage]);
 
   // Load event details
   useEffect(() => {
-    if (!event) {
-      fetchEvent(id)
-        .then((res) => {
-          if (res.data) setEvent(cacheLiveEvent(res.data));
-        })
-        .catch((err) => {
-          console.error("Failed to load event for ticket:", err);
-        })
-        .finally(() => setIsLoading(false));
+    if (getEventById(resolvedEventId) || getEventById(id)) {
+      return;
     }
-  }, [id, event]);
+
+    fetchEvent(resolvedEventId)
+      .then((res) => {
+        if (res.data) setFetchedEvent(cacheLiveEvent(res.data));
+      })
+      .catch((err) => {
+        console.error("Failed to load event for ticket:", err);
+      })
+      .finally(() => setIsLoading(false));
+  }, [id, resolvedEventId]);
 
   // Load active order details and official QR from API
   useEffect(() => {
-    let orderIdToFetch = orderDetails?.order_id || orderDetails?.id || "ORD-QRREAL-1";
+    const initialOrder = findInitialTicketOrder(id, queryOrderId);
+    let orderIdToFetch =
+      queryOrderId || initialOrder?.order_id || initialOrder?.id || "ORD-QRREAL-1";
 
     // Try fetching from API
     fetchMyOrders()
@@ -129,16 +245,59 @@ function TicketPageContent({ params }: TicketPageProps) {
         const list = Array.isArray(raw)
           ? (raw as TicketOrderState[])
           : (raw as { items?: TicketOrderState[] })?.items || [];
-        const found = list.find((o) => String((o as unknown as { event?: { id?: string | number } }).event?.id) === String(id) || o.order_id === orderIdToFetch);
+
+        let found: TicketOrderState | undefined;
+
+        // If we already know the specific order ID or order code, ONLY match that exact order
+        if (queryOrderId || initialOrder?.id || initialOrder?.order_id || initialOrder?.order_code) {
+          const targetId = String(queryOrderId || initialOrder?.order_id || initialOrder?.id || "");
+          const targetCode = String(initialOrder?.order_code || "");
+          found = list.find(
+            (o) =>
+              (targetId && String(o.order_id || o.id || "") === targetId) ||
+              (targetCode && String(o.order_code || "") === targetCode)
+          );
+        } else {
+          // Only fallback to matching by event ID if no specific order was in storage/query
+          found = list.find(
+            (o) =>
+              String(o.order_id || o.id || "") === String(id) ||
+              String(o.order_code || "") === String(id) ||
+              String(o.event?.id || o.event_id || "") === String(id)
+          );
+        }
+
         if (found) {
-          setOrderDetails(found);
-          orderIdToFetch = found.order_id || String(found.id) || orderIdToFetch;
+          const mergedOrder: TicketOrderState = {
+            ...initialOrder,
+            ...found,
+            items:
+              found.items && found.items.length > 0
+                ? found.items.map((apiItem, idx) => ({
+                    ...(initialOrder?.items?.[idx] || {}),
+                    ...apiItem,
+                    seat: {
+                      ...(initialOrder?.items?.[idx]?.seat || {}),
+                      ...(apiItem.seat || {}),
+                    },
+                  }))
+                : initialOrder?.items,
+          };
+          setOrderDetails(mergedOrder);
+          orderIdToFetch =
+            mergedOrder.order_id || String(mergedOrder.id || "") || orderIdToFetch;
         }
       })
       .catch(() => {
-        // Continue
+        // Continue with initialOrder from storage
       })
       .finally(() => {
+        const fallbackTicketCount =
+          initialOrder?.items?.length ||
+          initialOrder?.ticket_count ||
+          selectedSeats.length ||
+          1;
+
         // Fetch official QR token
         fetchMyQR(orderIdToFetch)
           .then((qrRes) => {
@@ -149,20 +308,20 @@ function TicketPageContent({ params }: TicketPageProps) {
             // Fallback QR simulation
             setQrData({
               token: `TKT.${orderIdToFetch}.${Date.now()}`,
-              order_code: orderDetails?.order_code || "ORD-2026-ATR",
+              order_code: initialOrder?.order_code || "ORD-2026-ATR",
               valid: true,
-              valid_ticket_count: selectedSeats.length || 1,
+              valid_ticket_count: fallbackTicketCount,
               successful_scan_count: 0,
-              remaining: selectedSeats.length || 1,
+              remaining: fallbackTicketCount,
               status_summary: "ISSUED",
             });
           })
           .finally(() => setQrLoading(false));
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once on mount to fetch official QR using initial order state
-  }, [id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Run on mount / route change to resolve order and QR
+  }, [id, queryOrderId]);
 
-  if (isLoading) {
+  if (isLoading && !event) {
     return (
       <div className="page-container route-loading text-center py-16">
         <div className="w-8 h-8 border-3 border-[#D93A2F] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
@@ -174,25 +333,87 @@ function TicketPageContent({ params }: TicketPageProps) {
   if (!event) notFound();
 
   const isCancelled = event.badge === "CANCELLED" || orderDetails?.event_status === "CANCELLED";
-  const validCount = qrData?.valid_ticket_count ?? (selectedSeats.length || 1);
-  const scanCount = qrData?.successful_scan_count ?? 0;
-  const qrTokenValue = qrData?.token || qrData?.qr_image || JSON.stringify({ orderId: id });
   const whatsappNumber =
-    buyerInfo.phoneNumber?.trim() ||
     orderDetails?.buyer?.phone_number?.trim() ||
     orderDetails?.buyer_phone?.trim() ||
+    buyerInfo.phoneNumber?.trim() ||
     "+628110000101";
 
-  // Attendees list
-  const attendeeItems = selectedSeats.length > 0
-    ? selectedSeats.map((s, i) => ({
+  // Dynamic Attendees & Seats list bound directly to orderDetails.items with formatSeatDisplayName
+  const quotaList = Object.values(quotaItems);
+  const attendeeItems = (() => {
+    if (orderDetails?.items && orderDetails.items.length > 0) {
+      return orderDetails.items.map((item, i) => {
+        const seatPayload = item.seat ? { ...item, ...item.seat } : item;
+        const rawKey = String(
+          item.seat?.id || item.seat_id || item.event_seat_id || item.id || ""
+        );
+        return {
+          label: formatSeatDisplayName(seatPayload),
+          category:
+            item.category ||
+            item.category_name ||
+            item.ticket_category?.name ||
+            item.seat?.category ||
+            "Reguler",
+          name:
+            item.attendee_name ||
+            item.participant_name ||
+            participantNames[rawKey] ||
+            orderDetails.buyer?.full_name ||
+            buyerInfo.fullName ||
+            `Peserta #${i + 1}`,
+        };
+      });
+    }
+
+    if (orderDetails?.seat_ids && orderDetails.seat_ids.length > 0) {
+      return orderDetails.seat_ids.map((seatId, i) => {
+        const key = String(seatId);
+        return {
+          label: formatSeatDisplayName({ id: key }),
+          category: "Reguler",
+          name:
+            participantNames[key] ||
+            orderDetails.buyer?.full_name ||
+            buyerInfo.fullName ||
+            `Peserta #${i + 1}`,
+        };
+      });
+    }
+
+    const fromStore = [
+      ...selectedSeats.map((s, i) => ({
         label: formatSeatDisplayName(s),
         category: s.category,
-        name: participantNames[s.id] || `Peserta #${i + 1}`,
-      }))
-    : [
-        { label: "Blok A · Baris A · Kursi 01", category: "Premium", name: "Nadia Putri" },
-      ];
+        name:
+          participantNames[s.id] ||
+          orderDetails?.buyer?.full_name ||
+          buyerInfo.fullName ||
+          `Peserta #${i + 1}`,
+      })),
+      ...quotaList.flatMap((q) =>
+        Array.from({ length: q.count }, (_, i) => {
+          const key = `${q.sectionId}-${i + 1}`;
+          return {
+            label: formatSeatDisplayName({ id: key, seat_label: `${q.sectionName} (#${i + 1})` }),
+            category: q.categoryName,
+            name:
+              participantNames[key] ||
+              orderDetails?.buyer?.full_name ||
+              buyerInfo.fullName ||
+              `Peserta #${selectedSeats.length + i + 1}`,
+          };
+        })
+      ),
+    ];
+
+    return fromStore;
+  })();
+
+  const validCount = qrData?.valid_ticket_count ?? (attendeeItems.length || orderDetails?.ticket_count || 1);
+  const scanCount = qrData?.successful_scan_count ?? 0;
+  const qrTokenValue = qrData?.token || qrData?.qr_image || JSON.stringify({ orderId: id });
 
   const isNewlyGenerated = searchParams.get("generated") === "1" || justGeneratedFromStorage;
 

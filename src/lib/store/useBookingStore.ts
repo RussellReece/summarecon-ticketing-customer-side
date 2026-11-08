@@ -15,6 +15,7 @@ const HOLD_DURATION_SECONDS = 10 * 60; // 10 minutes
 const MAX_SEATS = 4;
 const STORAGE_KEY = "summa_booking_state";
 const RELEASED_STORAGE_KEY = "summa_released_seats";
+const RELEASED_TTL_STORAGE_KEY = "summa_released_seats_ttl";
 
 export interface QuotaSelectionItem {
   sectionId: string;
@@ -80,6 +81,29 @@ function saveReleasedToSession(ids: string[]) {
       )
     );
     sessionStorage.setItem(RELEASED_STORAGE_KEY, JSON.stringify(clean));
+
+    const expiresAt = Date.now() + HOLD_DURATION_SECONDS * 1000;
+    const ttlMap: Record<string, number> = {};
+    try {
+      const existingRaw = localStorage.getItem(RELEASED_TTL_STORAGE_KEY);
+      if (existingRaw) {
+        const parsed = JSON.parse(existingRaw) as Record<string, number>;
+        const now = Date.now();
+        Object.entries(parsed).forEach(([k, exp]) => {
+          if (typeof exp === "number" && exp > now && clean.includes(k)) {
+            ttlMap[k] = exp;
+          }
+        });
+      }
+    } catch {
+      // Ignore parse error
+    }
+    clean.forEach((id) => {
+      if (!ttlMap[id]) {
+        ttlMap[id] = expiresAt;
+      }
+    });
+    localStorage.setItem(RELEASED_TTL_STORAGE_KEY, JSON.stringify(ttlMap));
   } catch {
     // Ignore storage quota
   }
@@ -87,25 +111,65 @@ function saveReleasedToSession(ids: string[]) {
 
 export function loadReleasedFromSession(): string[] {
   if (typeof window === "undefined") return [];
+  const collected = new Set<string>();
   try {
     const raw = sessionStorage.getItem(RELEASED_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed)
-      ? parsed
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        parsed
           .filter((id) => Boolean(id) && id !== "undefined" && id !== "null")
-          .map((id) => String(id).trim())
-      : [];
+          .forEach((id) => collected.add(String(id).trim()));
+      }
+    }
   } catch {
-    return [];
+    // Ignore sessionStorage error
   }
+  try {
+    const rawTtl = localStorage.getItem(RELEASED_TTL_STORAGE_KEY);
+    if (rawTtl) {
+      const parsedTtl = JSON.parse(rawTtl) as Record<string, number>;
+      const now = Date.now();
+      const validTtl: Record<string, number> = {};
+      let expiredFound = false;
+      Object.entries(parsedTtl).forEach(([id, exp]) => {
+        if (typeof exp === "number" && exp > now && id && id !== "undefined" && id !== "null") {
+          collected.add(String(id).trim());
+          validTtl[id] = exp;
+        } else {
+          expiredFound = true;
+        }
+      });
+      if (expiredFound) {
+        localStorage.setItem(RELEASED_TTL_STORAGE_KEY, JSON.stringify(validTtl));
+      }
+    }
+  } catch {
+    // Ignore localStorage error
+  }
+  return Array.from(collected);
+}
+
+function expandSeatKeyVariants(rawKey: string): string[] {
+  const trimmed = String(rawKey || "").trim();
+  if (!trimmed || trimmed === "undefined" || trimmed === "null") return [];
+  const out = [trimmed];
+  const match = trimmed.toUpperCase().match(/(?:ATR-)?([A-Z])-?(\d{1,2})\b/);
+  if (match) {
+    const row = match[1];
+    const numStr = match[2].padStart(2, "0");
+    out.push(`${row}${numStr}`);
+    out.push(`${row}-${numStr}`);
+    out.push(`ATR-${row}-${numStr}`);
+  }
+  return out;
 }
 
 function expandSeatIdentifiers(seats: Seat[] | undefined): string[] {
   if (!Array.isArray(seats)) return [];
   const keys: string[] = [];
   seats.forEach((s) => {
-    if (s.id) keys.push(String(s.id).trim());
+    if (s.id) keys.push(...expandSeatKeyVariants(String(s.id)));
     if (s.row && s.number !== undefined) {
       const numStr = String(s.number).padStart(2, "0");
       keys.push(`${s.row}${numStr}`);
@@ -114,6 +178,92 @@ function expandSeatIdentifiers(seats: Seat[] | undefined): string[] {
     }
   });
   return keys.filter((k) => Boolean(k) && k !== "undefined" && k !== "null");
+}
+
+interface ActiveOrderSessionData {
+  holdId: string | null;
+  holdIds: string[];
+  eventId: string | null;
+  seatIds: string[];
+  expandedSeatKeys: string[];
+}
+
+function loadActiveOrderFromSession(): ActiveOrderSessionData | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem("summa_active_order");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as {
+      hold_id?: string | number | null;
+      hold_ids?: (string | number)[];
+      event_id?: string | number;
+      event?: { id?: string | number; event_id?: string | number };
+      seat_ids?: (string | number)[];
+      event_seat_ids?: (string | number)[];
+      items?: Array<{
+        id?: string | number;
+        seat_id?: string | number;
+        event_seat_id?: string | number;
+        seat_label?: string;
+      }>;
+    };
+    const holdId = parsed.hold_id ? String(parsed.hold_id).trim() : null;
+    const holdIds = Array.isArray(parsed.hold_ids)
+      ? parsed.hold_ids.map((id) => String(id).trim()).filter(Boolean)
+      : holdId
+      ? [holdId]
+      : [];
+    const eventId = parsed.event_id
+      ? String(parsed.event_id)
+      : parsed.event?.event_id
+      ? String(parsed.event.event_id)
+      : parsed.event?.id
+      ? String(parsed.event.id)
+      : null;
+
+    const rawSeatIds: string[] = [];
+    const keys: string[] = [];
+    if (Array.isArray(parsed.seat_ids)) {
+      parsed.seat_ids.forEach((id) => {
+        rawSeatIds.push(String(id).trim());
+        keys.push(...expandSeatKeyVariants(String(id)));
+      });
+    }
+    if (Array.isArray(parsed.event_seat_ids)) {
+      parsed.event_seat_ids.forEach((id) => {
+        rawSeatIds.push(String(id).trim());
+        keys.push(...expandSeatKeyVariants(String(id)));
+      });
+    }
+    if (Array.isArray(parsed.items)) {
+      parsed.items.forEach((item) => {
+        if (item.id) keys.push(...expandSeatKeyVariants(String(item.id)));
+        if (item.seat_id) {
+          rawSeatIds.push(String(item.seat_id).trim());
+          keys.push(...expandSeatKeyVariants(String(item.seat_id)));
+        }
+        if (item.event_seat_id) {
+          rawSeatIds.push(String(item.event_seat_id).trim());
+          keys.push(...expandSeatKeyVariants(String(item.event_seat_id)));
+        }
+        if (item.seat_label) keys.push(...expandSeatKeyVariants(String(item.seat_label)));
+      });
+    }
+
+    return {
+      holdId,
+      holdIds,
+      eventId,
+      seatIds: Array.from(new Set(rawSeatIds.filter(Boolean))),
+      expandedSeatKeys: Array.from(new Set(keys.filter(Boolean))),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function loadActiveOrderSeatKeys(): string[] {
+  return loadActiveOrderFromSession()?.expandedSeatKeys || [];
 }
 
 function saveToSession(state: Partial<BookingState>) {
@@ -187,8 +337,13 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     if (saved.reservedUntil) {
       const remaining = getSecondsRemaining(saved.reservedUntil);
       if (remaining <= 0) {
-        // Expired already
+        // Expired already — still restore persisted releasedSeatIds
         sessionStorage.removeItem(STORAGE_KEY);
+        if (persistedReleased.length > 0) {
+          set((prev) => ({
+            releasedSeatIds: Array.from(new Set([...prev.releasedSeatIds, ...persistedReleased])),
+          }));
+        }
         return;
       }
       set((prev) => ({
@@ -210,18 +365,23 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   setEvent: (eventId: string) => {
     const state = get();
     const persistedReleased = loadReleasedFromSession();
+    const mergedReleased = Array.from(new Set([...state.releasedSeatIds, ...persistedReleased]));
     if (state.eventId && state.eventId !== eventId) {
       get().resetBooking();
       set({
         eventId,
         heldSeatIds: [],
-        releasedSeatIds: Array.from(new Set([...state.releasedSeatIds, ...persistedReleased])),
+        releasedSeatIds: mergedReleased,
       });
       saveToSession(get());
     } else if (!state.eventId) {
       set({
         eventId,
-        releasedSeatIds: Array.from(new Set([...state.releasedSeatIds, ...persistedReleased])),
+        releasedSeatIds: mergedReleased,
+      });
+    } else if (mergedReleased.length !== state.releasedSeatIds.length) {
+      set({
+        releasedSeatIds: mergedReleased,
       });
     }
   },
@@ -388,25 +548,52 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   releaseHold: async (eventId: string) => {
     const state = get();
     const saved = loadFromSession();
+    const activeOrder = loadActiveOrderFromSession();
 
-    const holdIds =
+    // 1. Ekstrak hold_id / holdIds dari state, sessionStorage booking, dan summa_active_order SEBELUM menghapus state
+    const holdIdsFromSources =
       state.holdIds.length > 0
         ? state.holdIds
         : saved?.holdIds && saved.holdIds.length > 0
         ? saved.holdIds
+        : activeOrder?.holdIds && activeOrder.holdIds.length > 0
+        ? activeOrder.holdIds
         : [];
-    const holdId = state.holdId || saved?.holdId || null;
-    const idsToRelease = holdIds.length > 0 ? holdIds : holdId ? [holdId] : [];
+    const primaryHoldId =
+      state.holdId || saved?.holdId || activeOrder?.holdId || null;
+    const idsToRelease = Array.from(
+      new Set(
+        (holdIdsFromSources.length > 0
+          ? holdIdsFromSources
+          : primaryHoldId
+          ? [primaryHoldId]
+          : []
+        )
+          .filter((id) => Boolean(id) && id !== "undefined" && id !== "null")
+          .map(String)
+      )
+    );
 
-    // Collect every seat identifier from active state AND sessionStorage BEFORE resetting
+    // Ekstrak seluruh ID kursi yang ditahan sebelum mereset state
     const keysFromHeld = [
       ...(state.heldSeatIds || []),
       ...(saved?.heldSeatIds || []),
-    ];
+    ].flatMap((id) => expandSeatKeyVariants(String(id)));
     const keysFromSelected = [
       ...expandSeatIdentifiers(state.selectedSeats),
       ...expandSeatIdentifiers(saved?.selectedSeats),
     ];
+    const keysFromActiveOrder = activeOrder?.expandedSeatKeys || loadActiveOrderSeatKeys();
+
+    const rawSeatIdsToRelease = Array.from(
+      new Set(
+        [
+          ...state.selectedSeats.map((s) => String(s.id)),
+          ...(saved?.selectedSeats || []).map((s) => String(s.id)),
+          ...(activeOrder?.seatIds || []),
+        ].filter((id) => Boolean(id) && id !== "undefined" && id !== "null")
+      )
+    );
 
     const mergedReleased = Array.from(
       new Set(
@@ -415,13 +602,28 @@ export const useBookingStore = create<BookingState>((set, get) => ({
           ...state.releasedSeatIds,
           ...keysFromHeld,
           ...keysFromSelected,
+          ...keysFromActiveOrder,
         ].filter((id) => Boolean(id) && id !== "undefined" && id !== "null")
       )
     );
 
-    // Persist immediately to sessionStorage and Zustand BEFORE network call / navigation
+    const resolvedEventId =
+      eventId || state.eventId || saved?.eventId || activeOrder?.eventId || "";
+
+    // 2. Panggil API DELETE /api/events/:id/holds (dengan keepalive: true) dan await hingga selesai
+    // SEBELUM menghapus state atau sessionStorage
+    if (resolvedEventId && (idsToRelease.length > 0 || rawSeatIdsToRelease.length > 0)) {
+      try {
+        await releaseHolds(resolvedEventId, idsToRelease, rawSeatIdsToRelease);
+      } catch (err) {
+        console.warn("releaseHolds API warning (falling back to releasedSeatIds override):", err);
+      }
+    }
+
+    // 3. Simpan daftar kursi yang dilepas ke storage (sessionStorage + localStorage TTL)
     saveReleasedToSession(mergedReleased);
 
+    // 4. BARU hapus state & sessionStorage booking setelah request API selesai
     const { timerId } = get();
     if (timerId) clearInterval(timerId);
     if (typeof window !== "undefined") {
@@ -429,7 +631,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     }
 
     set({
-      eventId: state.eventId || eventId,
+      eventId: resolvedEventId || state.eventId,
       selectedSeats: [],
       selectedQuota: {},
       quotaItems: {},
@@ -444,14 +646,6 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       conflictError: null,
       participantNames: {},
     });
-
-    if (idsToRelease.length > 0) {
-      try {
-        await releaseHolds(eventId, idsToRelease);
-      } catch {
-        // Backend auto-expires holds on timeout (DELETE /holds may return 405)
-      }
-    }
   },
 
   setBuyerInfo: (info: Partial<BuyerInfo>) => {
@@ -491,12 +685,12 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   },
 
   tick: () => {
-    const { reservedUntil } = get();
+    const { reservedUntil, eventId } = get();
     if (!reservedUntil) return;
 
     const remaining = getSecondsRemaining(reservedUntil);
     if (remaining <= 0) {
-      get().resetBooking();
+      void get().releaseHold(eventId || "");
       set({
         conflictError: "Waktu penahanan tiket (10 menit) telah habis. Silakan pilih kembali tiketmu.",
       });

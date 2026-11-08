@@ -26,13 +26,113 @@ export function getEstimatedServerTime(): number {
   return Date.now() + serverTimeOffsetMs;
 }
 
+const PAYMENT_DURATION_SECONDS = 7 * 60; // 7 minutes (420 seconds) for QRIS payment
+
+/**
+ * Safely parse an ISO or SQLite timestamp string (or numeric epoch ms) into epoch milliseconds.
+ * Normalizes SQLite UTC strings like "2026-11-08 13:20:00" to UTC ISO format.
+ */
+export function parseTimestampMs(raw: string | number | null | undefined): number | null {
+  if (raw === null || raw === undefined || raw === "") return null;
+  if (typeof raw === "number") {
+    return Number.isNaN(raw) ? null : raw;
+  }
+  const str = String(raw).trim();
+  if (!str) return null;
+
+  // Handle numeric string
+  if (/^\d+$/.test(str)) {
+    const num = Number(str);
+    return Number.isNaN(num) ? null : num;
+  }
+
+  // Handle SQLite UTC format "YYYY-MM-DD HH:MM:SS" without timezone indicator
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d+)?$/.test(str)) {
+    const parsedUtc = new Date(str.replace(" ", "T") + "Z").getTime();
+    if (!Number.isNaN(parsedUtc)) return parsedUtc;
+  }
+
+  const parsed = new Date(str).getTime();
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+/**
+ * Compute absolute expiration timestamp (in ms) for a 7-minute QRIS payment window.
+ * Priority:
+ * 1. Explicit `payment_expires_at` / `expires_at` / `payment.expires_at`
+ * 2. `created_at` + 7 minutes (420 seconds)
+ */
+export function getPaymentExpiryTimestampMs(
+  order:
+    | {
+        payment_expires_at?: string | number | null;
+        expires_at?: string | number | null;
+        created_at?: string | number | null;
+        payment?: {
+          expires_at?: string | number | null;
+          created_at?: string | number | null;
+        } | null;
+      }
+    | null
+    | undefined,
+  fallbackStartMs?: number | null
+): number | null {
+  if (order) {
+    const explicitExpiry =
+      parseTimestampMs(order.payment_expires_at) ??
+      parseTimestampMs(order.payment?.expires_at) ??
+      parseTimestampMs(order.expires_at);
+    if (explicitExpiry !== null) {
+      return explicitExpiry;
+    }
+
+    const createdMs =
+      parseTimestampMs(order.created_at) ?? parseTimestampMs(order.payment?.created_at);
+    if (createdMs !== null) {
+      return createdMs + PAYMENT_DURATION_SECONDS * 1000;
+    }
+  }
+
+  if (fallbackStartMs !== null && fallbackStartMs !== undefined && !Number.isNaN(fallbackStartMs)) {
+    return fallbackStartMs + PAYMENT_DURATION_SECONDS * 1000;
+  }
+
+  return null;
+}
+
+/**
+ * Calculate remaining seconds for a QRIS payment based on absolute timestamps:
+ * Remaining Time = Expiry Time - Current Estimated Server Time.
+ */
+export function getPaymentSecondsRemaining(
+  order:
+    | {
+        payment_expires_at?: string | number | null;
+        expires_at?: string | number | null;
+        created_at?: string | number | null;
+        payment?: {
+          expires_at?: string | number | null;
+          created_at?: string | number | null;
+        } | null;
+      }
+    | null
+    | undefined,
+  fallbackStartMs?: number | null
+): number {
+  const expiryMs = getPaymentExpiryTimestampMs(order, fallbackStartMs);
+  if (expiryMs === null) return PAYMENT_DURATION_SECONDS;
+
+  const currentMs = getEstimatedServerTime();
+  const diffSec = Math.floor((expiryMs - currentMs) / 1000);
+  return Math.max(0, diffSec);
+}
+
 /**
  * Calculate remaining seconds until an ISO 8601 expiry string (e.g. reserved_until).
  */
 export function getSecondsRemaining(expiresAtISO: string | number | null | undefined): number {
-  if (!expiresAtISO) return 0;
-  const targetMs = typeof expiresAtISO === "number" ? expiresAtISO : new Date(expiresAtISO).getTime();
-  if (Number.isNaN(targetMs)) return 0;
+  const targetMs = parseTimestampMs(expiresAtISO);
+  if (targetMs === null) return 0;
 
   const currentMs = getEstimatedServerTime();
   const diffSec = Math.floor((targetMs - currentMs) / 1000);
