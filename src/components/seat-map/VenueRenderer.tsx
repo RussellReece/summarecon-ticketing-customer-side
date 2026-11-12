@@ -738,35 +738,48 @@ export function VenueRenderer(props: VenueRendererProps) {
           MODE 2: DENAH PENUH (FULL VENUE ARCHITECTURAL VIEW)
          ═══════════════════════════════════════════════════════════════════════════ */}
       {viewMode === "full" && (
-        <div className="flex flex-col gap-4">
-          {/* Zoom & View Controls */}
-          <div className="flex items-center justify-between px-1">
-            <SeatLegend compact={true} />
+        <div className="flex flex-col">
+          {/* Legend — baris tersendiri (full width) */}
+          <SeatLegend compact={true} />
 
-            <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-stone-200 shadow-2xs">
+          {/* Zoom Controls — tepat di bawah Legenda & di atas frame denah kursi */}
+          <div className="w-full mt-2.5 mb-3 flex justify-center">
+            <div
+              className="inline-flex items-center gap-1 bg-white p-1 rounded-xl border border-stone-200 shadow-2xs"
+              role="group"
+              aria-label="Kontrol zoom denah"
+            >
               <button
                 type="button"
-                onClick={() => setZoomLevel((z) => Math.max(0.8, z - 0.1))}
-                className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-stone-700 hover:bg-stone-100 transition"
+                onClick={() => setZoomLevel((z) => Math.max(0.8, Math.round((z - 0.1) * 10) / 10))}
+                disabled={zoomLevel <= 0.8}
+                className="w-10 h-10 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center font-bold text-stone-700 hover:bg-stone-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
                 title="Perkecil (-)"
+                aria-label="Perkecil denah"
               >
                 −
               </button>
-              <span className="text-[11px] font-bold text-stone-600 px-1">
+              <span
+                className="min-w-[44px] text-center text-[11px] font-bold text-stone-600 tabular-nums"
+                aria-live="polite"
+              >
                 {Math.round(zoomLevel * 100)}%
               </span>
               <button
                 type="button"
-                onClick={() => setZoomLevel((z) => Math.min(1.4, z + 0.1))}
-                className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-stone-700 hover:bg-stone-100 transition"
+                onClick={() => setZoomLevel((z) => Math.min(1.4, Math.round((z + 0.1) * 10) / 10))}
+                disabled={zoomLevel >= 1.4}
+                className="w-10 h-10 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center font-bold text-stone-700 hover:bg-stone-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
                 title="Perbesar (+)"
+                aria-label="Perbesar denah"
               >
                 +
               </button>
+              <span className="w-px h-5 bg-stone-200 mx-0.5" aria-hidden="true" />
               <button
                 type="button"
                 onClick={() => setZoomLevel(1)}
-                className="px-2 h-8 rounded-lg text-xs font-semibold text-stone-600 hover:bg-stone-100 transition"
+                className="px-2.5 h-10 sm:h-8 rounded-lg text-xs font-semibold text-stone-600 hover:bg-stone-100 transition"
                 title="Reset Zoom"
               >
                 Reset
@@ -775,10 +788,12 @@ export function VenueRenderer(props: VenueRendererProps) {
           </div>
 
           {/* Full Venue Container */}
-          <div className="w-full rounded-2xl bg-gradient-to-b from-[#FFFDFB] to-[#FDF8F5] border border-[#EADFDF] p-4 sm:p-8 shadow-sm overflow-x-auto">
+          <div className="w-full rounded-2xl bg-gradient-to-b from-[#FFFDFB] to-[#FDF8F5] border border-[#EADFDF] p-4 sm:p-8 shadow-sm overflow-auto">
+            {/* CSS `zoom` (bukan transform: scale) agar ukuran layout ikut berubah: konten yang diperbesar
+                tetap berada di dalam frame & bisa di-scroll, tidak menabrak elemen di bawahnya. */}
             <div
-              className="min-w-[680px] max-w-4xl mx-auto flex flex-col gap-6 transition-transform duration-200 origin-top"
-              style={{ transform: `scale(${zoomLevel})` }}
+              className="min-w-[680px] max-w-4xl mx-auto flex flex-col gap-6"
+              style={{ zoom: zoomLevel }}
             >
               {/* 1. Stage Top */}
               <div className="w-full flex items-center justify-center">

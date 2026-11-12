@@ -3,7 +3,7 @@
 **Dokumen Referensi:** `FIX DOKUMEN ANALISIS AWAL SISTEM_104621.pdf` & `AGENT_GUIDE_FINAL_v4_Flow_Denah_API-Terkunci.md`  
 **Repositori:** `summarecon-ticketing-customer-side` (Next.js 16.4.5 + React 19 + TypeScript + Tailwind CSS + Turbopack)  
 **Lingkungan Live API:** `https://summarecon-admin.axtra.tech/api` (Backend Admin Terkunci / Live SQLite Database)  
-**Terakhir Diperbarui:** 8 November 2026 — Fase 10 (*Production Ready & Verified*)  
+**Terakhir Diperbarui:** 12 November 2026 — Fase 15 (*Floating Progress Line: Expand on Hover di Desktop & Line-Only di Mobile*)  
 **Tujuan Dokumen:** Catatan lengkap seluruh progres pengembangan dari awal hingga kondisi terkini, arsitektur data, alur bisnis, integrasi API, serta temuan dan solusi teknis sebagai konteks utama (*master context*) bagi tim engineer maupun sistem AI Generatif lain.
 
 > **⚠️ INSTRUKSI WAJIB (STANDING RULE UNTUK AI GENERATIF):**  
@@ -35,7 +35,8 @@ Aplikasi telah bertransformasi penuh dari prototipe berbasis mock data menjadi a
 | **Pengajuan Refund Peserta** | Bab 6.4, 7.4, 8.5 | Selesai (100%) | Pengajuan mandiri sebelum H-1 via `POST /api/customer/refunds` langsung masuk ke database SQLite admin (`201 Created`). |
 | **Refund Pembatalan Acara** | Bab 6.4 #5-#10, 7.6 | Selesai (100%) | Banner event dibatalkan, denah non-interaktif (`DISABLED_EVENT_CANCELLED`), formulir rekening refund tanpa biaya administrasi (100%). |
 | **Riwayat & Profil Pengguna** | Bab 5.1, Bab 8.1 | Selesai (100%) | Halaman `/account/orders` menampilkan jam pesanan lengkap (`🕒 Dipesan: ... WIB`), ringkasan QR scan, dan status pesanan bertingkat. |
-| **Responsivitas Viewport Mobile** | Bab 3.1 & Style Guide | Selesai (100%) | Target sentuh >= 48px, drawer bottom sheet ringkasan tiket, toggle fokus blok, hamburger menu di dalam navbar pill, zero layout shift. |
+| **Responsivitas Viewport Mobile** | Bab 3.1 & Style Guide | Selesai (100%) | Target sentuh >= 48px, drawer bottom sheet ringkasan tiket, toggle fokus blok, hamburger menu di dalam navbar pill, zero layout shift. Audit 360px Fase 13–15: bunga hero sejajar tombol CTA, legenda `flex-wrap`, kontrol zoom tepat di bawah legenda, tombol simulator tidak terpotong, progress line murni line-only tanpa dropdown pada layar sempit. |
+| **Navbar, Floating Progress Line, & Sticky Timer** | Style Guide & UX Audit | Selesai (100%) | Navbar global `sticky top-0 z-50` (tinggi via CSS var `--header-h`: 88px / 76px ≤600px). Floating Progress Line `sticky top-[var(--header-h)] z-[45]` (expand on hover di desktop dengan kartu detail melayang via `absolute top-full`, line-only di mobile). Kapsul timer hold (`/order/:id`, mobile `< lg`) dan timer QRIS 7 menit (`/payment/:id`) melayang bersih tanpa blok latar putih (`sticky top-[calc(var(--header-h)+12px)] z-40 bg-transparent pointer-events-none`). |
 
 ---
 
@@ -142,6 +143,14 @@ Aplikasi telah bertransformasi penuh dari prototipe berbasis mock data menjadi a
      3. Memanggil `await releaseHolds(resolvedEventId, idsToRelease, rawSeatIdsToRelease)` dan **menunggu (`await`) hingga selesai** dengan penanganan error `try / catch`.
      4. **Baru setelah** `await releaseHolds()` selesai, menyimpan `releasedSeatIds` ke `sessionStorage` + `localStorage` (dengan TTL 10 menit), menghapus `summa_booking_state` & `summa_active_order`, mereset state Zustand, dan mengeksekusi `router.push(/event/:id/book)`.
    - **Konfigurasi `keepalive: true` & `cache: "no-store"` di `customerApi.ts`**:
+          - Menambahkan listener `window.addEventListener("storage", ...)` pada `AccountOrdersPage` sehingga pembaruan transaksi di tab lain atau saat alur checkout tuntas seketika merefresh daftar pesanan tanpa reload manual.
+       6. **Auto-Persistence pada E-Ticket (`src/app/ticket/[id]/TicketPageClient.tsx`)**:
+          - Menambahkan effect otomatis pada `TicketPageClient` yang mengunci dan menyimpan pesanan aktif ke dalam `localStorage.summa_customer_orders` sebagai `PAID` begitu E-Ticket berhasil dibuka.
+       7. **Perbaikan Layout Status Bar QRIS & Anti-Overflow Badge (`src/app/payment/[id]/PaymentPageClient.tsx`)**:
+          - Mengubah status bar di atas QR code menjadi kapsul baris vertikal terisolasi (`w-full flex flex-col gap-2`) berlatar `bg-stone-50 border border-stone-200/60 rounded-xl px-3 py-2 flex items-center justify-between`.
+          - Menghilangkan total masalah teks *"Status Pembayaran:"* bertabrakan dengan badge serta mencegah badge meluber keluar batas kartu.
+       8. **Standardisasi Target Rute Navigasi Checkout (`src/app/order/[id]/OrderPageClient.tsx`)**:
+          - Memperbaiki target rute menjadi `/payment/${eventId}?orderId=${targetOrderKey}` sehingga parameter rute selalu berupa event ID yang valid.
      - Menambahkan `keepalive: true` serta mengirimkan `{ hold_id, hold_ids, event_seat_ids, seat_ids }` pada `releaseHolds()` (`DELETE /api/events/:id/holds`) agar request tidak pernah di-*abort* oleh browser saat komponen *unmount*.
      - Menambahkan `{ cache: "no-store" }` pada `fetchEventSeats()` (`GET /api/events/:id/seats`).
    - **Sinkronisasi Penuh Saat Keluar-Masuk Denah**:
@@ -168,6 +177,94 @@ Aplikasi telah bertransformasi penuh dari prototipe berbasis mock data menjadi a
       - Menghapus teks *hardcoded* (`"Blok A · Baris A · Kursi 01"`) dan memperbaiki pencarian order di `TicketPageClient.tsx` agar mencocokkan `orderId` / `order_code` secara spesifik (tidak lagi tertimpa oleh order lama `ORD-2026-0008` akibat pencocokan `event.id` semata).
       - Memetakan bagian `Daftar Peserta & Tempat Duduk` (`attendeeItems`) secara langsung dari `orderDetails.items` dengan memformat posisi kursi menggunakan `formatSeatDisplayName(item.seat ? { ...item, ...item.seat } : item)`.
       - Memperkaya `formatSeatDisplayName()` di `src/lib/utils.ts` agar mendukung objek bersarang `item.seat`, `event_seat_id`, `seat_id`, kode venue (`ATR`, `SWG`, `DWT`), dan label kursi yang sudah terformat tanpa duplikasi kata `"Kursi"`.
+
+13. **Fase 13 — Audit UI Mobile 360px: Perbaikan Layout, Sticky Navbar, & Sticky Timer (Selesai, 12 Nov 2026)**:
+    - **Temuan Akar Masalah Global (WAJIB DIKETAHUI AI LAIN)**: `src/styles/globals.css` (file CSS yang di-import `src/app/layout.tsx`; `src/app/globals.css` **tidak dipakai**) berisi class legacy **tanpa `@layer`** (`.site-header`, `.back-link`, `.detail-hero h1`, `.selection-limit`, `.selection-panel`, dll.). Di Tailwind v4, utilitas berada di `@layer utilities`, sehingga **CSS unlayered selalu menang** atas class Tailwind pada properti yang sama. Contoh: `mb-4` pada `<p className="selection-limit">` diabaikan karena `.selection-limit { margin: 12px 0 0 }`. Saat menambah utilitas Tailwind pada elemen yang juga memakai class legacy, cek dulu rule-nya di `src/styles/globals.css` lalu ubah rule tersebut (atau hapus class legacy-nya).
+    - **CSS Variable Tinggi Navbar**: `:root { --header-h: 88px }` dan `76px` pada `@media (max-width: 600px)`. `html { scroll-padding-top: var(--header-h) }` agar anchor `/#events` & `/#how-it-works` tidak tertutup navbar sticky. Seluruh elemen sticky lain memakai offset `top-[var(--header-h)]` / `lg:top-[calc(var(--header-h)+16px)]`.
+    - **#1 Hero (`EventExplorer.tsx` + `globals.css` mobile)**: Grafis bunga (`.hero-bloom`) di mobile kini `bottom: 44px; width: 92px; z-index: 0; pointer-events: none`, `.hero-copy` & `.hero-cta` diberi `relative z-10`, dan `.hero-content` diberi `padding-bottom: 156px` sehingga bunga selalu berada di bawah tombol CTA "Temukan acaramu ↓" (tidak overlap). `.hero-location` dibatasi `max-width: calc(100% - 112px)` agar tidak menabrak bunga.
+    - **#2 Badge Detail Event (`src/app/event/[id]/page.tsx`)**: Container badge "Tiket Tersedia" + lokasi diberi `mt-4 sm:mt-5 flex flex-wrap items-center gap-2 sm:gap-2.5` (karena `.detail-hero h1` me-reset margin-bottom h1 → 0). Badge lokasi `max-w-full` + nama venue `truncate`.
+    - **#3 Kontrol Zoom Denah Penuh (`VenueRenderer.tsx`)**: Legenda dipindah ke baris sendiri; panel zoom `− 100% + | Reset` kini statis di **bawah** frame denah (`w-full flex justify-center`), target sentuh `40px` di mobile, tombol disabled di batas 80%/140%, `role="group"` + `aria-label`. Skala memakai CSS `zoom` (bukan `transform: scale`) sehingga ukuran layout ikut berubah — konten yang diperbesar tetap di dalam frame `overflow-auto` dan tidak menabrak elemen lain.
+    - **#4 Legenda (`SeatLegend.tsx`)**: Ditulis ulang data-driven (`LEGEND_ITEMS`) dalam satu `<ul className="flex flex-wrap justify-center gap-1.5 sm:gap-2.5">` dengan item berlebar alami, teks `text-[10px] sm:text-xs`, swatch `w-3.5 sm:w-5`. Tidak lagi memakai `grid-cols-3` (penyebab "VIP / Premium" meluap di 360px).
+    - **#5 Disclaimer "Maksimal 4 tiket..." (`src/app/event/[id]/book/page.tsx` + `globals.css`)**: `.selection-limit` diubah menjadi `margin: 12px 0 16px` (`mb-4`) sehingga ada jarak aman sebelum tombol "Lanjut ke Data Peserta", termasuk pada drawer mobile (`mb-3`).
+    - **#6 Tombol Simulator Sandbox (`PaymentPageClient.tsx`)**: Tombol `Bayar Sukses / Bayar Gagal / Kedaluwarsa` kini selalu ikon-di-atas-teks (`flex-col`), `min-w-0 min-h-[52px] px-1 sm:px-2 text-[10px] sm:text-xs tracking-tight whitespace-normal break-words text-center`, card simulator `p-4 sm:p-5` → lebar konten tombol ±74px di 360px sehingga "Kedaluwarsa" muat penuh tanpa terpotong.
+    - **#7 Navigasi Atas E-Ticket (`TicketPageClient.tsx`)**: Dua link dibungkus `flex flex-row justify-between items-center w-full gap-3`, keduanya `inline-flex items-center min-h-10 leading-none whitespace-nowrap`; class `.back-link` (margin-bottom 23px, penyebab misalignment) dilepas. Di mobile teks kanan disingkat menjadi "Pesanan Saya →" ("Lihat Semua" tampil mulai `sm:`).
+    - **#8 Daftar Peserta E-Ticket (`TicketPageClient.tsx`)**: Item peserta `flex flex-col sm:flex-row gap-2 sm:gap-3`, nama `min-w-0 break-words`, badge kursi `self-start shrink-0`; jarak antar item `space-y-2.5`.
+    - **#9 Sticky Timer**:
+      - `CountdownTimer.tsx` kini menerima prop `variant?: "default" | "compact"` (compact = satu baris, titik berkedip, merah gelap saat ≤ 60 detik). Logika store tidak berubah.
+      - `/order/:id` (`OrderPageClient.tsx`): bar `lg:hidden sticky top-[var(--header-h)] z-40 -mx-4 px-4 py-2 bg-white/95 backdrop-blur-sm border-b` berisi `<CountdownTimer variant="compact" />` tepat di bawah heading; kartu timer sidebar hanya tampil `lg:` dan sidebar memakai `lg:sticky lg:top-[calc(var(--header-h)+16px)]`.
+      - `/payment/:id` (`PaymentPageClient.tsx`): timer QRIS 7 menit dipindah dari dalam kartu QR menjadi bar halaman `sticky top-[var(--header-h)] z-40` (semua viewport, hanya saat `paymentStatus === "PENDING"`).
+      - Aside sticky lain (`/event/:id` booking card & `/event/:id/book` selection panel) diganti dari `sticky top-6` menjadi `lg:sticky lg:top-[calc(var(--header-h)+16px)]` agar tidak tertutup navbar sticky.
+    - **#10 Navbar Global (`Header.tsx`)**: `<header className="site-header sticky top-0 z-50 bg-white shadow-sm">`; rule `.site-header` di CSS hanya menyisakan `height: var(--header-h)` + padding (position/z-index/background dihapus dari CSS agar utilitas Tailwind berlaku). Drawer mobile (`absolute top-full`) tetap berfungsi karena elemen sticky juga merupakan containing block.
+    - **Verifikasi**: `npx tsc --noEmit` (exit 0), `npm run lint` (exit 0), dan `node test/seatmap-layout.test.mjs` (exit 0).
+
+14. **Fase 14 — Penyempurnaan Hero Mobile, Posisi Kontrol Zoom, Floating Sticky Timer, & Interactive Booking Progress Bar (Selesai, 12 Nov 2026)**:
+    - **#1 Penyelarasan Ilustrasi Kelopak Bunga dengan Tombol "Temukan acaramu ↓" di Mobile (`src/styles/globals.css`)**:
+      - Pada `@media (max-width: 600px)`, posisi `.hero-bloom` dinaikkan ke `right: 8px; bottom: 64px; width: 86px; opacity: .88` dan `.hero-content` dirapatkan menjadi `min-height: 410px; padding-block: 48px 84px` (serta `.hero { min-height: 430px }` dan `.hero-location { bottom: 34px }`).
+      - Dengan konfigurasi ini, pusat visual kelopak bunga berada tepat di sebelah kanan tombol CTA `.hero-cta` ("Temukan acaramu ↓") secara sejajar horizontal tanpa menabrak tombol tersebut, sekaligus menghilangkan ruang kosong berlebih antara tombol CTA dan teks lokasi.
+    - **#2 Pemindahan Kontrol Zoom Denah Penuh ke Bawah Legenda (`src/components/seat-map/VenueRenderer.tsx`)**:
+      - Pada mode `viewMode === "full"`, blok kontrol zoom (`− 100% + | Reset`) dipindahkan dari bagian paling bawah denah ke **tepat di bawah komponen `<SeatLegend compact={true} />` dan di atas frame/kanvas pemilihan kursi** dengan wrapper `w-full mt-2.5 mb-3 flex justify-center`.
+    - **#3 Floating Sticky Timer Tanpa Blok Latar Belakang Putih (`src/app/order/[id]/OrderPageClient.tsx`, `src/app/payment/[id]/PaymentPageClient.tsx`, `src/components/shared/CountdownTimer.tsx`)**:
+      - Menghapus class `bg-white/95 backdrop-blur-sm border-b -mx-4 px-4 py-2` pada wrapper luar `sticky` di halaman Order dan Payment.
+      - Menambahkan `pointer-events-auto shadow-md bg-amber-50/95 backdrop-blur-xs border border-amber-300/90` langsung pada kapsul timer (`CountdownTimer` varian `compact` dan kapsul timer QRIS 7 menit) sehingga saat halaman di-*scroll*, hanya kapsul timernya saja yang melayang bersih tanpa blok putih di belakangnya.
+    - **#4 Komponen Stepper Interaktif 3 Langkah (`src/components/shared/BookingProgressBar.tsx`)**:
+      - Membuat komponen awal `BookingProgressBar` 3 langkah: (1) *Pilih Kursi*, (2) *Isi Data Diri*, (3) *Pembayaran*.
+
+15. **Fase 15 — Konsep Floating Progress Line on Scroll: Expand on Hover di Desktop, Line-Only di Mobile, & Hirarki Sticky Timer (Selesai, 12 Nov 2026)**:
+    - **Progress Bar Lengkap Statis di Posisi Awal**:
+      - Pada bagian atas halaman (alur dokumen normal), komponen `BookingProgressBar` tetap merender kartu stepper lengkap (`ref={staticRef}`): nomor langkah, persentase penyelesaian, progress bar gradient, dan 3 langkah interaktif (Pilih Kursi · Denah & kategori, Isi Data Diri · Data pemesan & peserta, Pembayaran · Selesaikan via QRIS).
+      - Dilengkapi `IntersectionObserver` (dengan `rootMargin: "-88px 0px 0px 0px"`) serta listener `scroll`/`resize` sinkron untuk mendeteksi secara akurat saat progress bar statis telah terlewati oleh *scroll* (`isScrolledPast === true`).
+    - **Floating Progress Line Saat Di-Scroll + Desktop Hover Expansion**:
+      - Ketika `isScrolledPast === true`, elemen floating aktif melayang tepat di bawah *sticky navbar*: `fixed top-[var(--header-h)] left-0 right-0 z-[45]`.
+      - **Warna Solid Tegas & Identik dengan Progress Bar Lengkap (Tanpa Disamarkan)**:
+        - Container melayang menggunakan bar putih solid `w-full bg-white border-b border-[#E8DFC9] shadow-2xs pointer-events-auto` tepat menempel di bawah navbar sehingga konten halaman yang di-*scroll* tidak tembus (*no bleed-through*) dan tidak menyamarkan warna garis.
+        - Garis progres melayang menggunakan track solid `bg-[#F3EFEA]` dengan border `border-[#E8DFC9]/80` dan isi progres gradien penuh `bg-gradient-to-r from-[#1F8F7E] via-[#D93A2F] to-[#F4A23B]` yang persis sama dengan garis pada kartu progress bar lengkap statis di bagian atas.
+        - Menghapus efek redup/transparan (`bg-stone-200/70`, `bg-[#E5DEC9]/80`, `border-white/40`) agar warna langkah aktif dan persentase selalu kontras tinggi, pekat, dan mudah dilihat di segala mode perangkat (desktop & mobile responsive).
+        - Tetap dilengkapi grid klik overlay 3 langkah untuk navigasi cepat kembali ke langkah sebelumnya yang sudah selesai.
+      - **Desktop Hover (`md:` ke atas)**: Area hover memicu transisi halus ekspansi kartu stepper lengkap (`hidden md:block absolute top-full left-0 right-0 pt-2 transition-all duration-200 ease-out z-50`) langsung di bawah garis progres melayang dengan *zero layout shift*. Pengguna dapat mengklik langkah yang sudah dilewati untuk kembali tanpa harus scroll ke atas.
+      - **Mobile Responsif (`< md` / Viewport 360px)**: Panel ekspansi hover disembunyikan total (`hidden md:block`) sehingga pada layar mobile hanya garis progres solid ramping yang tampil bersih tanpa menutupi formulir atau berbenturan dengan sticky timer.
+    - **Sinkronisasi Posisi dengan Sticky Timer (`OrderPageClient.tsx` & `PaymentPageClient.tsx`)**:
+      - Urutan layer vertikal saat di-*scroll*:
+        1. Sticky Navbar (`top-0 z-50`, tinggi `var(--header-h)`)
+        2. Floating Progress Line (`top-[var(--header-h)] z-[45]`, container baris sub-header `bg-white border-b`)
+        3. Sticky Floating Timer (`top-[calc(var(--header-h)+20px)] z-40 bg-transparent pointer-events-none`)
+      - Kapsul timer memiliki offset tepat 20px di bawah navbar, melayang bebas tepat di bawah garis progres floating dengan margin rapi (gap 3-4px).
+    - **Perbaikan Overflow Status Bar pada Kartu QRIS (`PaymentPageClient.tsx`)**:
+      - Mengganti class `grid grid-cols-1 sm:grid-cols-2 gap-2` dengan layout baris fleksibel vertikal `flex flex-col gap-2.5 mb-5 pb-3.5 border-b border-stone-100` di mana masing-masing baris (`Status Pesanan` dan `Status Pembayaran`) memakai `flex items-center justify-between flex-wrap gap-2 text-left`.
+      - **Akar Masalah**: Pada viewport desktop (`md:` ke atas), kartu QRIS berada di kolom kiri dari layout 2 kolom (`grid grid-cols-1 md:grid-cols-2`). Lebar dalam kartu hanya ±368px, sehingga memaksakan grid 2 kolom (`sm:grid-cols-2`) di dalam kartu menyebabkan teks label ("Status Pembayaran:", 110px) dan badge status ("Menunggu Pembayaran", 145px, total 255px) tidak muat dalam slot 180px, mengakibatkan badge menabrak teks dan meluap keluar batas kartu (*overflow*).
+      - Dengan layout baris vertikal `justify-between`, label berada di sisi kiri dan badge berada rapi di sisi kanan kartu dengan zero overflow di semua ukuran layar (desktop, tablet, hingga mobile 360px).
+    - **Penyempurnaan Sinkronisasi Riwayat Pesanan & Sandbox Payment Feedback (`src/app/account/orders/page.tsx` & `src/app/payment/[id]/PaymentPageClient.tsx`)**:
+      - Memperbarui `loadLocalOrders()` di `AccountOrdersPage` agar mendeteksi pesanan aktif yang telah terbayar di `sessionStorage` (`summa_active_order`) dan menggabungkannya secara presisi ke dalam list pesanan lokal.
+      - Menerapkan **Smart Merge** pada penggabungan `localList` dan `apiList`: Jika pesanan lokal telah berstatus `PAID` (misal via simulator pembayaran sandbox), status `PAID` dan detail tiketnya dipertahankan dan tidak akan tertimpa kembali menjadi `UNPAID` oleh data server API lama.
+      - Memperjelas pesan umpan balik pada tombol *"Cek Status Pembayaran ↻"* di `PaymentPageClient.tsx` agar pengguna memahami bahwa QRIS yang tampil adalah kode simulasi sandbox dummy (tanpa integrasi webhook bank live otomatis) dan mengarahkan pengguna untuk menekan tombol **"✓ Bayar Sukses"** pada panel *Simulator Callback Sandbox*.
+    - **Verifikasi**: `npx tsc --noEmit` (exit 0), `npm run lint` (exit 0), dan `node test/seatmap-layout.test.mjs` (exit 0).
+
+16. **Fase 16 — Fallback Penyimpanan Transaksi Lokal (Sandbox) & Opsi Sinkronisasi ke Database Server API (Selesai, 12 Nov 2026)**:
+    - **Analisis Akar Masalah (Mengapa Transaksi Baru Tidak Masuk ke Database Server API)**:
+      1. **Ketiadaan Route POST Orders di Backend Live**: Server backend upstream live (`https://summarecon-admin.axtra.tech/api`) belum mengimplementasikan endpoint pembuatan pesanan (`POST /api/orders` menghasilkan respons `404 Not Found`, sesuai catatan arsitektur ACR-03).
+      2. **Lingkungan QRIS Sandbox Dummy**: QR Code pembayaran yang dirender adalah payload sandbox standar (`000201010212...`) tanpa webhook perbankan / payment gateway nyata ke `/api/payments/callback`. Pembayaran disimulasikan menggunakan tombol callback sandbox di frontend.
+      3. **Isolasi Data Database Server**: Endpoint `GET /api/customer/orders` hanya membaca tabel `orders` di server backend (berisi seed demo lama seperti `ORD-DWT-001`, `ORD-TEST-FIVE`). Karena backend menolak `POST /api/orders`, pesanan baru yang dibuat di client tidak pernah masuk ke database server tersebut secara otomatis.
+      4. **Masalah Frontend Sebelumnya Saat Belum Login**: Di `src/app/account/orders/page.tsx`, jika request `fetchMe()` menghasilkan `401 Unauthorized` (misal pemesanan dilakukan sebagai simulasi/guest), frontend langsung me-redirect pengguna ke halaman `/login` sehingga daftar pesanan lokal di browser tidak sempat ditampilkan.
+    - **Implementasi Solusi & Fitur Baru**:
+      1. **Dukungan Tampilan Transaksi Lokal Mandiri & Mode Tamu (`src/app/account/orders/page.tsx`)**:
+         - Menambahkan penanganan `401` di mana jika ditemukan transaksi lokal di `localStorage` (`summa_customer_orders`) atau `sessionStorage` (`summa_active_order`), pengguna tidak di-kick ke halaman login melainkan tetap dapat melihat seluruh tiketnya dalam banner **"Mode Akses Lokal (Tamu)"** yang ramah.
+      2. **Penandaan Visual Sumber Penyimpanan Transaksi**:
+         - Pada setiap kartu riwayat pesanan (`/account/orders`) dan halaman detail pesanan (`/account/orders/[id]`), dipasang badge penanda yang jelas:
+           - `💾 Lokal (Sandbox)` (warna amber/kuning kehijauan) untuk transaksi yang tersimpan di memori browser lokal.
+           - `☁️ Database Server` (warna emerald/hijau) untuk transaksi yang tersimpan resmi di database server backend.
+      3. **Fitur "Simpan ke Database API ☁️"**:
+         - Menyediakan tombol aksi langsung *"Simpan ke Database API ☁️"* pada setiap pesanan berstatus lokal.
+         - Fungsi `handleSyncToDatabase(order)` mengecek status autentikasi akun pengguna (`fetchMe()`), memvalidasi item dan kursi, lalu mencoba mengirimkan payload via `createOrder(payload)` dan `payOrder(orderId)`.
+         - Memberikan kotak informasi respon yang elegan (*success*, *info*, atau *error*) yang secara transparan menginformasikan status penyimpanan ke database server API.
+      4. **Integritas Tipe Data & Kompatibilitas Sistem**:
+         - Menambahkan atribut `is_local_order?: boolean` dan `storage_source?: "LOCAL_SANDBOX" | "DATABASE_API"` pada seluruh type model (`OrderHistoryItem`, `ActiveOrderRecord`, `OrderDetailState`) di `OrderPageClient.tsx`, `PaymentPageClient.tsx`, dan `account/orders`.
+      5. **Multi-Storage Scanning, Instant Zero-Latency Render, & Filter Tabs (`src/app/account/orders/page.tsx`)**:
+         - `loadLocalOrders()` kini memindai tiga wadah browser sekaligus (`localStorage.summa_customer_orders`, `sessionStorage.summa_active_order`, dan `localStorage.summa_active_order`) dengan fungsi deduplikasi `addIfUnique` yang memprioritaskan status `PAID`.
+         - State `orders` diinisialisasi langsung dari `loadLocalOrders()` saat mount (`useState(() => loadLocalOrders())`) sehingga pesanan yang baru saja dibuat langsung muncul seketika di layar tanpa jeda menunggu respons jaringan API.
+         - Menambahkan filter tabs interaktif di atas daftar pesanan: `Semua (N)`, `💾 Lokal (Sandbox) (N)`, dan `☁️ Database Server (N)`.
+         - Menambahkan tombol **"Segarkan ↻"** dengan spinner loading untuk memudahkan pemuatan ulang kapan saja.
+         - Mengurutkan daftar pesanan secara kronologis menurun (`created_at` DESC) sehingga pesanan terbaru pengguna selalu bertengger di baris pertama paling atas.
+         - Menambahkan `{ cache: "no-store" }` pada `fetchMyOrders` dan `fetchMe` (`customerApi.ts`) untuk mencegah browser/Next.js meng-cache daftar pesanan lama.
+    - **Verifikasi**: `npx tsc --noEmit` (exit 0), `npm run lint` (exit 0), dan `node test/seatmap-layout.test.mjs` (exit 0).
 
 ---
 
@@ -212,7 +309,8 @@ summarecon-ticketing-customer-side/
 │   │   │   ├── Header.tsx                # Navigasi utama (<Suspense>), status user, mobile drawer
 │   │   │   ├── Footer.tsx                # Footer resmi Summarecon Mall Bandung
 │   │   │   ├── EventExplorer.tsx         # Filter & grid event + badge Event Terdekat (kanan atas)
-│   │   │   ├── CountdownTimer.tsx        # Timer mundur tersinkronisasi
+│   │   │   ├── BookingProgressBar.tsx    # Stepper interaktif 3 langkah (Pilih Kursi -> Data Diri -> Pembayaran)
+│   │   │   ├── CountdownTimer.tsx        # Timer mundur tersinkronisasi (default & compact floating pill)
 │   │   │   └── MainSiteLayout.tsx        # Pembungkus layout konsisten
 │   │   └── ui/
 │   │       └── StatusBadge.tsx           # Badge status bilingual (Indonesian standard)
@@ -401,6 +499,8 @@ Bagi model AI yang membaca berkas ini sebagai konteks untuk melanjutkan pengemba
    - Reguler: Emerald/Teal `#1F8F7E` (Border), `#E3F4F1` (Background), `#14665A` (Teks).
    - Status Terjual: Plum `#6B5A6E`.
    - Status Ditahan: Kuning/Amber `#E9A12B`.
+   - **Elemen Sticky**: Navbar `sticky top-0 z-50`; elemen sticky di bawahnya wajib memakai offset `top-[var(--header-h)]` (z-40) atau `lg:top-[calc(var(--header-h)+16px)]`. Jangan memakai `top-6` lagi karena akan tertutup navbar.
+   - **CSS Legacy vs Tailwind**: Rule di `src/styles/globals.css` tidak berada di `@layer`, sehingga menang atas utilitas Tailwind. Ubah rule legacy tersebut bila utilitas Tailwind tidak berefek.
 5. **Verifikasi Wajib**: Sebelum menyelesaikan tugas, pastikan selalu menjalankan:
    - `npx tsc --noEmit` (harus exit code 0).
    - `npm run lint` (harus exit code 0 tanpa error React 19 hook/ref).

@@ -11,6 +11,7 @@ import { useState, useEffect, Suspense, use } from "react";
 import { useRouter, usePathname, notFound } from "next/navigation";
 import { useBookingStore } from "@/lib/store/useBookingStore";
 import CountdownTimer from "@/components/shared/CountdownTimer";
+import { BookingProgressBar } from "@/components/shared/BookingProgressBar";
 import { cacheLiveEvent, getEventById } from "@/lib/data/events";
 import { fetchEvent, fetchMe, createOrder, type CreateOrderPayload } from "@/services/customerApi";
 import type { TicketEvent } from "@/types/event";
@@ -294,10 +295,11 @@ function OrderForm({ params }: OrderPageProps) {
                 // Ignore storage quota errors
               }
 
-              const targetPaymentId = String(
-                updatedExistingOrder.id || updatedExistingOrder.order_id || id
+              const targetOrderKey = String(
+                updatedExistingOrder.id || updatedExistingOrder.order_id || ""
               );
-              router.push(`/payment/${targetPaymentId}`);
+              const orderQuery = targetOrderKey ? `?orderId=${encodeURIComponent(targetOrderKey)}` : "";
+              router.push(`/payment/${event?.id || id}${orderQuery}`);
               return;
             }
           }
@@ -413,6 +415,8 @@ function OrderForm({ params }: OrderPageProps) {
           status: "UNPAID",
           order_status: "UNPAID",
           payment_status: "UNPAID",
+          is_local_order: true,
+          storage_source: "LOCAL_SANDBOX",
           total_amount: totalPrice,
           ticket_count: allTicketEntries.length,
           created_at: defaultCreatedAt,
@@ -433,7 +437,13 @@ function OrderForm({ params }: OrderPageProps) {
 
       // Save active order details to sessionStorage and localStorage order history
       if (typeof window !== "undefined" && createdOrder) {
-        sessionStorage.setItem("summa_active_order", JSON.stringify(createdOrder));
+        try {
+          const serializedOrder = JSON.stringify(createdOrder);
+          sessionStorage.setItem("summa_active_order", serializedOrder);
+          localStorage.setItem("summa_active_order", serializedOrder);
+        } catch {
+          // ignore
+        }
         try {
           const rawLocal = localStorage.getItem("summa_customer_orders");
           const localList: Array<{ id?: string; order_id?: string; order_code?: string }> = rawLocal
@@ -453,7 +463,9 @@ function OrderForm({ params }: OrderPageProps) {
         }
       }
 
-      router.push(`/payment/${id}`);
+      const orderKey = createdOrder?.id || createdOrder?.order_id;
+      const orderQuery = orderKey ? `?orderId=${encodeURIComponent(String(orderKey))}` : "";
+      router.push(`/payment/${id}${orderQuery}`);
     } catch (err: unknown) {
       const errObj = err as { message?: string };
       setSubmitError(errObj?.message || "Gagal membuat pesanan. Silakan coba lagi.");
@@ -472,6 +484,16 @@ function OrderForm({ params }: OrderPageProps) {
 
   return (
     <div className="page-container checkout-page max-w-6xl mx-auto py-8 px-4">
+      <BookingProgressBar
+        currentStep={2}
+        eventId={event?.id || id}
+        onStepClick={(step) => {
+          if (step === 1) {
+            setShowBackConfirm(true);
+          }
+        }}
+      />
+
       {/* Back Button with Confirmation */}
       <button
         type="button"
@@ -522,6 +544,12 @@ function OrderForm({ params }: OrderPageProps) {
         <p className="text-sm text-stone-600 mt-1">
           Tiketmu sedang ditahan. Lengkapi nama peserta sebelum batas waktu berakhir.
         </p>
+      </div>
+
+      {/* Sticky Hold Timer (mobile/tablet < lg) — hanya kapsul timer yang melayang (tanpa blok background putih)
+          tepat di bawah floating progress line navbar dengan offset aman 20px. */}
+      <div className="lg:hidden sticky top-[calc(var(--header-h)+20px)] z-40 bg-transparent pointer-events-none py-1 mb-5">
+        <CountdownTimer variant="compact" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
@@ -631,9 +659,9 @@ function OrderForm({ params }: OrderPageProps) {
 
         {/* Kolom Kanan: Timer & Ringkasan */}
         <div className="lg:col-span-1">
-          <div className="sticky top-6 space-y-4">
-            {/* 10-Minute Hold Timer */}
-            <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl shadow-sm text-center">
+          <div className="lg:sticky lg:top-[calc(var(--header-h)+16px)] space-y-4">
+            {/* 10-Minute Hold Timer (desktop sidebar; mobile memakai bar sticky di atas form) */}
+            <div className="hidden lg:block bg-amber-50 border border-amber-200 p-4 rounded-2xl shadow-sm text-center">
               <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wider block mb-1">
                 Sisa Waktu Penahanan Kursi
               </span>

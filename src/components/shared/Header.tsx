@@ -49,7 +49,9 @@ function HeaderView({ pathname }: { pathname: string }) {
   }, [user, setUser]);
 
   return (
-    <header className="site-header relative z-40">
+    // Sticky global navbar. Tinggi header = var(--header-h) (88px desktop / 76px ≤600px),
+    // dipakai sebagai offset `top` oleh timer sticky di halaman Order & Payment.
+    <header className="site-header sticky top-0 z-50 bg-white shadow-sm">
       <div className="header-inner flex items-center justify-between">
         {/* Brand */}
         <Link className="brand" href="/" aria-label="SummareconTicket, beranda">

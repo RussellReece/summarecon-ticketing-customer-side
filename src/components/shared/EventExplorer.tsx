@@ -198,15 +198,15 @@ export function EventExplorer() {
       {/* Hero Section */}
       <section className="hero">
         <div className="hero-content page-container">
-          <div className="hero-copy">
+          <div className="hero-copy relative z-10">
             <span className="eyebrow"><span className="eyebrow-line" /> MOMEN SERU DI SUMMARECON MALL BANDUNG</span>
             <h1>Acara seru,<br />cerita <span>baru.</span></h1>
             <p>Pilih acara favorit, temukan kursi terbaikmu, dan nikmati momen bersama.</p>
-            <a className="button button-primary hero-cta" href="#events">
+            <a className="button button-primary hero-cta relative z-10" href="#events">
               Temukan acaramu <span aria-hidden="true">↓</span>
             </a>
           </div>
-          <div className="hero-bloom" aria-hidden="true">
+          <div className="hero-bloom z-0 pointer-events-none select-none" aria-hidden="true">
             <span className="bloom-petal bloom-petal-top" />
             <span className="bloom-petal bloom-petal-left" />
             <span className="bloom-petal bloom-petal-right" />
@@ -214,7 +214,7 @@ export function EventExplorer() {
             <span className="bloom-petal bloom-petal-bottom-right" />
             <span className="bloom-center" />
           </div>
-          <div className="hero-location"><span aria-hidden="true">⌖</span> SUMMARECON MALL BANDUNG · BANDUNG</div>
+          <div className="hero-location z-10"><span aria-hidden="true">⌖</span> SUMMARECON MALL BANDUNG · BANDUNG</div>
         </div>
       </section>
 

@@ -7,6 +7,7 @@ import { notFound, useRouter } from "next/navigation";
 
 import { SeatMap } from "@/components/seat-map/SeatMap";
 import { SelectionSummaryClient } from "@/components/seat-map/SelectionSummaryClient";
+import { BookingProgressBar } from "@/components/shared/BookingProgressBar";
 
 import { formatRupiah } from "@/lib/utils";
 import { cacheLiveEvent, getEventById } from "@/lib/data/events";
@@ -119,6 +120,8 @@ function BookingPageContent({ params }: BookingPageProps) {
 
   return (
     <div className="page-container booking-page py-6 max-w-7xl mx-auto px-4 pb-36 lg:pb-12">
+      <BookingProgressBar currentStep={1} eventId={event.id || id} />
+
       <Link
         className="back-link inline-flex items-center gap-1.5 text-xs font-semibold text-stone-600 hover:text-stone-900 mb-4 transition"
         href={`/event/${event.id}`}
@@ -159,7 +162,7 @@ function BookingPageContent({ params }: BookingPageProps) {
         </section>
 
         {/* Right (Desktop Only): Summary & Lanjut CTA */}
-        <aside className="selection-panel hidden lg:block bg-white border border-stone-200 rounded-2xl p-6 shadow-sm sticky top-6">
+        <aside className="selection-panel hidden lg:block bg-white border border-stone-200 rounded-2xl p-6 shadow-sm lg:sticky lg:top-[calc(var(--header-h)+16px)]">
           <span className="booking-card-label text-[11px] font-bold text-stone-400 uppercase tracking-wider block mb-1">
             RINGKASAN PILIHAN
           </span>
@@ -187,7 +190,8 @@ function BookingPageContent({ params }: BookingPageProps) {
             </span>
           </div>
 
-          <p className="selection-limit text-[11px] text-stone-500 mb-4 italic">
+          {/* mb-4 dijaga juga oleh `.selection-limit` di globals.css (margin: 12px 0 16px) agar tidak menempel ke tombol */}
+          <p className="selection-limit text-[11px] text-stone-500 mb-4 italic leading-relaxed">
             Maksimal 4 tiket per transaksi. Kursi ditahan 10 menit setelah kamu masuk ke langkah data peserta.
           </p>
 
@@ -240,8 +244,8 @@ function BookingPageContent({ params }: BookingPageProps) {
               </button>
             </div>
             <SelectionSummaryClient />
-            <p className="text-[10px] text-stone-500 mt-2 italic">
-              Kursi ditahan selama 10 menit setelah kamu menekan tombol Lanjut.
+            <p className="text-[10px] text-stone-500 mt-2 mb-3 italic leading-relaxed">
+              Maksimal 4 tiket per transaksi. Kursi ditahan selama 10 menit setelah kamu menekan tombol Lanjut.
             </p>
           </div>
         )}

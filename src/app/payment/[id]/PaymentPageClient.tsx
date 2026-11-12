@@ -16,6 +16,7 @@ import type { TicketEvent } from "@/types/event";
 import { useBookingStore } from "@/lib/store/useBookingStore";
 import { formatRupiah, formatSeatDisplayName } from "@/lib/utils";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { BookingProgressBar } from "@/components/shared/BookingProgressBar";
 import {
   formatRemainingTime,
   getEstimatedServerTime,
@@ -40,6 +41,8 @@ interface ActiveOrderRecord {
   payment_expires_at?: string;
   paid_at?: string;
   ticket_count?: number;
+  is_local_order?: boolean;
+  storage_source?: "LOCAL_SANDBOX" | "DATABASE_API";
   payment?: {
     status?: string;
     expires_at?: string;
@@ -145,7 +148,9 @@ function findInitialActiveOrder(routeId: string, queryOrderId: string | null): A
 function syncOrderStorage(updatedOrder: ActiveOrderRecord) {
   if (typeof window === "undefined") return;
   try {
-    sessionStorage.setItem("summa_active_order", JSON.stringify(updatedOrder));
+    const serialized = JSON.stringify(updatedOrder);
+    sessionStorage.setItem("summa_active_order", serialized);
+    localStorage.setItem("summa_active_order", serialized);
   } catch {
     // ignore
   }
@@ -484,6 +489,8 @@ function PaymentPageContent({ params }: PaymentPageProps) {
             status: "PAID",
             order_status: "PAID",
             payment_status: "PAID",
+            is_local_order: true,
+            storage_source: "LOCAL_SANDBOX",
             paid_at: orderToEvaluate.paid_at || new Date().toISOString(),
           };
           setActiveOrder(updatedPaidOrder);
@@ -521,9 +528,13 @@ function PaymentPageContent({ params }: PaymentPageProps) {
         setPaymentStatus("PENDING");
       }
 
-      setStatusMessage("Pembayaran belum diterima. Silakan selesaikan pembayaran melalui kode QRIS di atas.");
+      setStatusMessage(
+        "Pembayaran belum terdeteksi dari gateway. Karena berada di lingkungan sandbox demo, gunakan tombol '✓ Bayar Sukses' pada panel Simulator Callback di samping untuk mengonfirmasi pembayaran."
+      );
     } catch {
-      setStatusMessage("Pembayaran belum diterima. Silakan pindai kode QRIS atau gunakan simulator sandbox.");
+      setStatusMessage(
+        "Pembayaran belum terdeteksi. Silakan gunakan tombol simulator sandbox '✓ Bayar Sukses' untuk menguji alur tiket berhasil."
+      );
     } finally {
       setIsChecking(false);
     }
@@ -554,6 +565,7 @@ function PaymentPageContent({ params }: PaymentPageProps) {
         const finalOrderId = resolvedOrderId || `ORD-SIM-${Date.now()}`;
         if (typeof window !== "undefined") {
           const resolvedCode = activeOrder?.order_code || `ORD-${Date.now().toString().slice(-6)}`;
+          const nowIso = new Date().toISOString();
           const updated: ActiveOrderRecord = {
             ...activeOrder,
             id: finalOrderId,
@@ -562,14 +574,17 @@ function PaymentPageContent({ params }: PaymentPageProps) {
             status: "PAID",
             order_status: "PAID",
             payment_status: "PAID",
-            paid_at: new Date().toISOString(),
+            is_local_order: true,
+            storage_source: "LOCAL_SANDBOX",
+            created_at: activeOrder?.created_at || nowIso,
+            paid_at: nowIso,
             total_amount: totalPrice,
             ticket_count: allTickets.length,
             event: activeOrder?.event || {
               id: event?.id || resolvedEventId,
               name: event?.title || "Bandung Tech & Creative Expo",
               title: event?.title || "Bandung Tech & Creative Expo",
-              start_at: event?.dateISO || new Date().toISOString(),
+              start_at: event?.dateISO || nowIso,
               status: event?.badge || "SALES_OPEN",
             },
             seat_ids: activeOrder?.seat_ids || selectedSeats.map((s) => s.id),
@@ -654,7 +669,19 @@ function PaymentPageContent({ params }: PaymentPageProps) {
 
   return (
     <div className="page-container checkout-page max-w-4xl mx-auto py-8 px-4">
-      <Link className="back-link inline-flex items-center gap-1.5 text-xs font-semibold text-stone-600 hover:text-stone-900 mb-6 transition" href={`/order/${event.id}`}>
+      <BookingProgressBar
+        currentStep={3}
+        eventId={event?.id || resolvedEventId}
+        onStepClick={(step) => {
+          if (step === 2) {
+            router.push(`/order/${event?.id || resolvedEventId}`);
+          } else if (step === 1) {
+            void handleRetryBooking();
+          }
+        }}
+      />
+
+      <Link className="back-link inline-flex items-center gap-1.5 text-xs font-semibold text-stone-600 hover:text-stone-900 mb-6 transition" href={`/order/${event?.id || resolvedEventId}`}>
         ← Kembali ke data peserta
       </Link>
 
@@ -670,30 +697,40 @@ function PaymentPageContent({ params }: PaymentPageProps) {
         </p>
       </div>
 
+      {/* Sticky Payment Timer (7 minutes) — hanya kapsul timer yang melayang (tanpa blok background putih)
+          di bawah floating progress line navbar dengan offset aman 20px sehingga sisa waktu tetap terlihat saat pengguna scroll ke bawah. */}
+      {paymentStatus === "PENDING" && (
+        <div
+          role="timer"
+          aria-live="polite"
+          className="sticky top-[calc(var(--header-h)+20px)] z-40 bg-transparent pointer-events-none py-1 mb-5"
+        >
+          <div className="pointer-events-auto flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl bg-amber-50/95 backdrop-blur-xs border border-amber-300/90 shadow-md text-xs text-amber-900">
+            <span className="inline-flex items-center gap-2 font-semibold min-w-0">
+              <span className="w-2 h-2 rounded-full bg-[#E9A12B] animate-pulse shrink-0" aria-hidden="true" />
+              <span className="truncate">Batas waktu bayar</span>
+            </span>
+            <span className="font-mono font-bold text-sm sm:text-base text-[#D93A2F] tabular-nums shrink-0">
+              {formatRemainingTime(paymentSecondsLeft)}
+            </span>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
         {/* Kolom Kiri: QRIS Card */}
         <section className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm text-center">
-          {/* Status Bar: Responsive grid ensuring zero overflow on mobile */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4 pb-3 border-b border-stone-100 text-xs">
-            <div className="flex items-center justify-between sm:justify-start gap-2">
-              <span className="text-stone-500 font-medium">Status Pesanan:</span>
+          {/* Status Bar: Clean stacked key-value rows ensuring zero overflow on both desktop 2-column cards & mobile */}
+          <div className="w-full flex flex-col gap-2 mb-5 pb-3.5 border-b border-stone-100 text-xs">
+            <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-stone-50 border border-stone-200/60 text-left">
+              <span className="text-stone-600 font-semibold text-xs">Status Pesanan:</span>
               <StatusBadge status={orderStatus} size="sm" className="whitespace-nowrap shrink-0" />
             </div>
-            <div className="flex items-center justify-between sm:justify-start gap-2">
-              <span className="text-stone-500 font-medium">Status Pembayaran:</span>
+            <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-stone-50 border border-stone-200/60 text-left">
+              <span className="text-stone-600 font-semibold text-xs">Status Pembayaran:</span>
               <StatusBadge status={paymentStatus} size="sm" className="whitespace-nowrap shrink-0" />
             </div>
           </div>
-
-          {/* Payment Timer (7 minutes) */}
-          {paymentStatus === "PENDING" && (
-            <div className="mb-4 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-center justify-between">
-              <span className="font-semibold">Batas waktu bayar:</span>
-              <span className="font-mono font-bold text-sm text-[#D93A2F]">
-                {formatRemainingTime(paymentSecondsLeft)}
-              </span>
-            </div>
-          )}
 
           {/* QRIS Code or Fallback */}
           {paymentStatus === "PENDING" ? (
@@ -801,7 +838,7 @@ function PaymentPageContent({ params }: PaymentPageProps) {
           </div>
 
           {/* Sandbox Simulator Box */}
-          <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-5 shadow-xs">
+          <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 sm:p-5 shadow-xs">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-sm">🧪</span>
               <h4 className="font-bold text-xs text-amber-950 uppercase tracking-wider">
@@ -817,28 +854,28 @@ function PaymentPageContent({ params }: PaymentPageProps) {
                 type="button"
                 onClick={() => handleSimulatePayment("SUCCESS")}
                 disabled={isChecking || paymentStatus === "SUCCESS"}
-                className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 py-2.5 px-1.5 sm:px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] sm:text-xs leading-tight transition shadow-sm text-center disabled:opacity-50"
+                className="min-w-0 min-h-[52px] flex flex-col items-center justify-center gap-0.5 py-2 px-1 sm:px-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] sm:text-xs leading-tight tracking-tight sm:tracking-normal whitespace-normal break-words transition shadow-sm text-center disabled:opacity-50"
               >
                 <span>✓</span>
-                <span>Bayar Sukses</span>
+                <span className="block w-full">Bayar Sukses</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleSimulatePayment("FAILED")}
                 disabled={isChecking || paymentStatus === "SUCCESS"}
-                className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 py-2.5 px-1.5 sm:px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10px] sm:text-xs leading-tight transition shadow-sm text-center disabled:opacity-50"
+                className="min-w-0 min-h-[52px] flex flex-col items-center justify-center gap-0.5 py-2 px-1 sm:px-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10px] sm:text-xs leading-tight tracking-tight sm:tracking-normal whitespace-normal break-words transition shadow-sm text-center disabled:opacity-50"
               >
                 <span>✕</span>
-                <span>Bayar Gagal</span>
+                <span className="block w-full">Bayar Gagal</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleSimulatePayment("EXPIRED")}
                 disabled={isChecking || paymentStatus === "SUCCESS"}
-                className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 py-2.5 px-1.5 sm:px-3 rounded-xl bg-stone-600 hover:bg-stone-700 text-white font-bold text-[10px] sm:text-xs leading-tight transition shadow-sm text-center disabled:opacity-50"
+                className="min-w-0 min-h-[52px] flex flex-col items-center justify-center gap-0.5 py-2 px-1 sm:px-2 rounded-xl bg-stone-600 hover:bg-stone-700 text-white font-bold text-[10px] sm:text-xs leading-tight tracking-tight sm:tracking-normal whitespace-normal break-words transition shadow-sm text-center disabled:opacity-50"
               >
                 <span>◷</span>
-                <span>Kedaluwarsa</span>
+                <span className="block w-full">Kedaluwarsa</span>
               </button>
             </div>
           </div>

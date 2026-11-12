@@ -52,6 +52,8 @@ interface OrderDetailState {
   total_amount?: number;
   ticket_count?: number;
   event_status?: string;
+  is_local_order?: boolean;
+  storage_source?: "LOCAL_SANDBOX" | "DATABASE_API";
   payment?: {
     status?: string;
     expires_at?: string;
@@ -81,6 +83,15 @@ function findLocalMatchingOrder(targetId: string): OrderDetailState | null {
     // ignore
   }
   try {
+    const rawActiveLocal = localStorage.getItem("summa_active_order");
+    if (rawActiveLocal) {
+      const parsed = JSON.parse(rawActiveLocal);
+      if (parsed) candidates.push(parsed);
+    }
+  } catch {
+    // ignore
+  }
+  try {
     const rawLocal = localStorage.getItem("summa_customer_orders");
     if (rawLocal) {
       const parsed = JSON.parse(rawLocal);
@@ -89,13 +100,19 @@ function findLocalMatchingOrder(targetId: string): OrderDetailState | null {
   } catch {
     // ignore
   }
-  return (
-    candidates.find(
-      (o) =>
-        String(o.id || o.order_id || "") === String(targetId) ||
-        String(o.order_code || "") === String(targetId)
-    ) || null
+  const found = candidates.find(
+    (o) =>
+      String(o.id || o.order_id || "") === String(targetId) ||
+      String(o.order_code || "") === String(targetId)
   );
+
+  if (!found) return null;
+
+  return {
+    ...found,
+    is_local_order: found.is_local_order ?? true,
+    storage_source: found.storage_source ?? "LOCAL_SANDBOX",
+  };
 }
 
 export default function OrderDetailPage({ params }: OrderDetailPageProps) {
@@ -398,9 +415,28 @@ function OrderDetailContent({ params }: OrderDetailPageProps) {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-stone-200">
         <div>
-          <span className="text-xs font-mono font-bold text-stone-400 block mb-0.5">
-            ORDER #{order.order_code || orderId}
-          </span>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-mono font-bold text-stone-500 bg-stone-100 px-2.5 py-0.5 rounded-md">
+              ORDER #{order.order_code || orderId}
+            </span>
+            {order.is_local_order ? (
+              <span
+                className="inline-flex items-center gap-1 text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-300 px-2 py-0.5 rounded-full"
+                title="Tersimpan di browser lokal"
+              >
+                <span>💾</span>
+                <span>Lokal (Sandbox)</span>
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1 text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-full"
+                title="Tersimpan di server database API"
+              >
+                <span>☁️</span>
+                <span>Database Server</span>
+              </span>
+            )}
+          </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-stone-900 leading-tight">
             Detail Pesanan Tiket
           </h1>

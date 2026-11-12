@@ -216,6 +216,41 @@ function TicketPageContent({ params }: TicketPageProps) {
     hydrateFromStorage();
   }, [hydrateFromStorage]);
 
+  // Ensure ticket order is persistently recorded in local storage history as PAID
+  useEffect(() => {
+    if (typeof window === "undefined" || !orderDetails) return;
+    try {
+      const orderKey = String(orderDetails.order_id || orderDetails.id || "");
+      const orderCode = String(orderDetails.order_code || "");
+      if (!orderKey && !orderCode) return;
+
+      const raw = localStorage.getItem("summa_customer_orders");
+      const list: Array<Record<string, unknown>> = raw ? JSON.parse(raw) : [];
+      const filtered = list.filter(
+        (o) =>
+          String(o.id || o.order_id || "") !== orderKey &&
+          (!orderCode || String(o.order_code || "") !== orderCode)
+      );
+
+      const recordToSave = {
+        ...orderDetails,
+        status: "PAID",
+        order_status: "PAID",
+        payment_status: "PAID",
+        is_local_order: true,
+        storage_source: "LOCAL_SANDBOX",
+        created_at: (orderDetails as Record<string, unknown>).created_at || new Date().toISOString(),
+        paid_at: (orderDetails as Record<string, unknown>).paid_at || new Date().toISOString(),
+      };
+
+      localStorage.setItem("summa_customer_orders", JSON.stringify([recordToSave, ...filtered]));
+      localStorage.setItem("summa_active_order", JSON.stringify(recordToSave));
+      sessionStorage.setItem("summa_active_order", JSON.stringify(recordToSave));
+    } catch {
+      // Ignore storage errors
+    }
+  }, [orderDetails]);
+
   // Load event details
   useEffect(() => {
     if (getEventById(resolvedEventId) || getEventById(id)) {
@@ -419,15 +454,24 @@ function TicketPageContent({ params }: TicketPageProps) {
 
   return (
     <div className="page-container ticket-page max-w-2xl mx-auto py-8 px-4">
-      <div className="flex items-center justify-between mb-6">
-        <Link className="back-link inline-flex items-center gap-1.5 text-xs font-semibold text-stone-600 hover:text-stone-900 transition" href="/">
-          ← Kembali ke Beranda
+      {/* Top navigation — kedua link berada dalam satu baris flex dengan tinggi seragam (min-h-10)
+          dan tanpa class `.back-link` (yang menambahkan margin-bottom 23px) agar sejajar vertikal. */}
+      <div className="flex flex-row justify-between items-center w-full gap-3 mb-6">
+        <Link
+          className="inline-flex items-center gap-1.5 min-h-10 text-xs font-semibold leading-none text-stone-600 hover:text-[#D93A2F] whitespace-nowrap transition"
+          href="/"
+        >
+          <span aria-hidden="true">←</span>
+          <span>Kembali ke Beranda</span>
         </Link>
         <Link
-          className="text-xs font-bold text-[#D93A2F] hover:underline"
+          className="inline-flex items-center gap-1.5 min-h-10 text-xs font-bold leading-none text-[#D93A2F] hover:underline whitespace-nowrap text-right"
           href="/account/orders"
         >
-          Lihat Semua Pesanan Saya →
+          <span>
+            <span className="hidden sm:inline">Lihat Semua </span>Pesanan Saya
+          </span>
+          <span aria-hidden="true">→</span>
         </Link>
       </div>
 
@@ -578,17 +622,17 @@ function TicketPageContent({ params }: TicketPageProps) {
             Daftar Peserta & Tempat Duduk
           </h4>
 
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {attendeeItems.map((att, i) => (
               <div
                 key={i}
-                className="flex items-center justify-between p-3 rounded-xl bg-white border border-stone-200 text-xs shadow-2xs"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 sm:p-3.5 rounded-xl bg-white border border-stone-200 text-xs shadow-2xs"
               >
-                <div>
-                  <span className="font-bold text-stone-900 block">{att.name}</span>
+                <div className="min-w-0 flex flex-col gap-0.5">
+                  <span className="font-bold text-stone-900 break-words">{att.name}</span>
                   <span className="text-[11px] text-stone-500">{att.category}</span>
                 </div>
-                <span className="font-bold text-xs bg-stone-100 text-stone-800 px-2.5 py-1 rounded-lg">
+                <span className="self-start sm:self-auto shrink-0 font-bold text-xs bg-stone-100 text-stone-800 px-2.5 py-1 rounded-lg leading-snug">
                   {att.label}
                 </span>
               </div>

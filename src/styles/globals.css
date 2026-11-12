@@ -15,6 +15,8 @@
   --hold: #e9a12b;
   --sold: #bdb3b8;
   --error: #b3261e;
+  /* Tinggi navbar sticky global — dipakai sebagai offset `top` untuk timer/aside sticky */
+  --header-h: 88px;
 }
 
 @theme inline {
@@ -25,7 +27,7 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; scroll-padding-top: var(--header-h); }
 body {
   margin: 0;
   background: var(--paper);
@@ -44,7 +46,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .site-main { min-height: 65vh; }
 .page-container { width: min(1120px, calc(100% - 64px)); margin-inline: auto; }
 
-.site-header { position: relative; z-index: 5; height: 88px; padding: 14px 0; background: var(--paper); }
+/* position / z-index / background dikendalikan utility Tailwind di Header.tsx (sticky top-0 z-50 bg-white shadow-sm) */
+.site-header { height: var(--header-h); padding: 14px 0; }
 .header-inner { width: min(1120px, calc(100% - 64px)); height: 60px; margin: auto; padding: 0 12px 0 18px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border: 1px solid rgba(140,31,43,.08); border-radius: 999px; background: rgba(255,253,251,.92); box-shadow: 0 6px 24px rgba(140,31,43,.08); backdrop-filter: blur(14px); }
 .brand { display: inline-flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 800; letter-spacing: -.55px; white-space: nowrap; }
 .brand-mark { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(135deg,#d93a2f,#ee6a35 60%,#f4a23b); }
@@ -234,7 +237,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .selection-total, .order-total { display: flex; justify-content: space-between; align-items: center; margin: 8px 0 16px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 11px; font-weight: 700; }
 .selection-total small { display: block; margin-top: 5px; color: #92909d; font-size: 9px; font-weight: 400; }
 .selection-total strong { font-size: 15px; }
-.selection-limit { margin: 12px 0 0; color: #92909d; font-size: 9px; line-height: 1.5; }
+.selection-limit { margin: 12px 0 16px; color: #92909d; font-size: 9px; line-height: 1.5; }
 .button-disabled { opacity: .45; cursor: not-allowed; }
 
 .checkout-heading { margin: 14px 0 30px; }
@@ -317,8 +320,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .ticket-pass-details { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 600px) {
+  :root { --header-h: 76px; }
   .page-container, .header-inner, .footer-inner { width: min(100% - 36px, 460px); }
-  .site-header { height: 76px; padding: 10px 0; }
+  .site-header { height: var(--header-h); padding: 10px 0; }
   .header-inner { height: 56px; gap: 9px; padding: 0 7px 0 11px; }
   .brand { gap: 7px; font-size: 13px; }
   .brand-mark { width: 32px; height: 32px; }
@@ -326,12 +330,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .main-nav { display: none; }
   .header-tickets { margin-left: auto; font-size: 11px; white-space: nowrap; }
   .header-login { min-height: 48px; padding: 0 13px; font-size: 11px; }
-  .hero { min-height: 500px; }
-  .hero-content { min-height: 450px; grid-template-columns: 1fr; align-content: start; padding-block: 60px 92px; }
+  .hero { min-height: 430px; }
+  /* Mobile hero: tombol CTA (.hero-cta, tinggi 52px) berakhir 84px dari bawah (rentang 84px–136px,
+     pusat vertikal ~110px). Bunga (.hero-bloom, 86px) ditempatkan di kanan (right: 8px, bottom: 64px)
+     sehingga pusat visual kelopak bunga sejajar horizontal tepat di sebelah kanan tombol CTA tanpa overlap,
+     dan jarak antara tombol CTA dengan .hero-location (bottom: 34px) tetap rapat & proporsional. */
+  .hero-content { min-height: 410px; grid-template-columns: 1fr; align-content: start; padding-block: 48px 84px; }
   .hero h1 { margin-top: 21px; font-size: 50px; letter-spacing: -.055em; }
   .hero-content > .hero-copy > p { max-width: 335px; font-size: 14px; }
-  .hero-bloom { position: absolute; right: 12px; bottom: 30px; width: 125px; opacity: .8; }
-  .hero-location { right: auto; bottom: 32px; left: 0; max-width: 220px; font-size: 8px; line-height: 1.6; }
+  .hero-bloom { position: absolute; z-index: 0; right: 8px; bottom: 64px; width: 86px; opacity: .88; pointer-events: none; }
+  .hero-location { right: auto; bottom: 34px; left: 0; max-width: 100%; font-size: 8px; line-height: 1.6; }
   .search-section { margin-top: -28px; }
   .event-search { grid-template-columns: 1fr; padding: 8px; border-radius: 16px; }
   .search-field { min-height: 52px; border-right: 0; border-bottom: 1px solid var(--line); }

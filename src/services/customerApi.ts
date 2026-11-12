@@ -72,7 +72,7 @@ export function logoutCustomer(): Promise<void> {
  * Throws ApiError 401 if not logged in.
  */
 export function fetchMe(): Promise<ApiSingleResponse<CustomerProfile>> {
-  return apiGet("/auth/me");
+  return apiGet("/auth/me", undefined, { cache: "no-store" });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -239,7 +239,10 @@ export function payOrder(
  * @throws ApiError 401 — not authenticated
  */
 export function fetchMyOrders(token?: string): Promise<ApiListResponse<CustomerOrder>> {
-  return apiGet("/customer/orders", undefined, token ? { token } : undefined);
+  return apiGet("/customer/orders", undefined, {
+    cache: "no-store",
+    ...(token ? { token } : {}),
+  });
 }
 
 /**

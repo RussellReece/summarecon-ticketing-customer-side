@@ -154,7 +154,8 @@ async function EventPageContent({ params }: EventPageProps) {
             {title}
           </h1>
 
-          <div className="flex flex-wrap items-center gap-2.5">
+          {/* mt-4: `.detail-hero h1` (globals.css) me-reset margin-bottom h1 ke 0, jadi jarak dijaga dari container badge */}
+          <div className="mt-4 sm:mt-5 flex flex-wrap items-center gap-2 sm:gap-2.5">
             {isCancelled ? (
               <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-rose-500/20 backdrop-blur-md text-rose-100 border border-rose-300/40">
                 <span className="w-2 h-2 rounded-full bg-rose-400" aria-hidden="true" />
@@ -172,12 +173,12 @@ async function EventPageContent({ params }: EventPageProps) {
               </span>
             )}
 
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium bg-black/20 backdrop-blur-md text-white/90 border border-white/15">
+            <span className="inline-flex items-center gap-1.5 max-w-full px-3.5 py-1.5 rounded-full text-xs font-medium bg-black/20 backdrop-blur-md text-white/90 border border-white/15">
               <svg className="w-3.5 h-3.5 text-white/80 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 21s-6-5.686-6-10a6 6 0 0112 0c0 4.314-6 10-6 10z" />
                 <circle cx="12" cy="11" r="2.5" />
               </svg>
-              <span>{venueName}</span>
+              <span className="min-w-0 truncate">{venueName}</span>
             </span>
           </div>
         </div>
@@ -280,7 +281,7 @@ async function EventPageContent({ params }: EventPageProps) {
         </div>
 
         {/* Right Column: Booking Action Card (centered on stacked/mobile viewports, sidebar on desktop) */}
-        <aside className="booking-card bg-white border border-stone-200 rounded-2xl p-6 sm:p-8 shadow-sm sticky top-6 w-full max-w-lg mx-auto justify-self-center lg:max-w-none lg:mx-0">
+        <aside className="booking-card bg-white border border-stone-200 rounded-2xl p-6 sm:p-8 shadow-sm lg:sticky lg:top-[calc(var(--header-h)+16px)] w-full max-w-lg mx-auto justify-self-center lg:max-w-none lg:mx-0">
           <span className="booking-card-label text-[11px] font-bold text-stone-400 uppercase tracking-wider block mb-1">
             {isCancelled ? "ACARA DIBATALKAN" : isSoldOut ? "HABIS TERJUAL" : "TIKET TERSEDIA"}
           </span>

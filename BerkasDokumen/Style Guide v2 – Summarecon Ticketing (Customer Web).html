@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Style Guide v2 – Summarecon Ticketing (Customer Web)</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FDFBF7;--surface:#fff;--ink:#2A1F2D;--muted:#6E6270;--line:#EADFD9;--tint:#FDE9E4;
+  --primary:#D93A2F;--garnet:#8C1F2B;--saffron:#F4A23B;
+  --vipbg:#FFF8E7;--vip:#D9822B;--vipt:#8F4800;--regbg:#E3F4F1;--reg:#1F8F7E;--regt:#14665A;
+  --hold:#E9A12B;--sold:#6B5A6E;--blk:#9A8F95;--ok:#1F8F7E;--bad:#B3261E;
+  --grad:linear-gradient(135deg,#D93A2F 0%,#EE6A35 60%,#F4A23B 100%);--sh:0 8px 28px rgba(140,31,43,.14);
+  --m-x:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M200 56L56 200M200 200L56 56' fill='none' stroke='%23000' stroke-width='30' stroke-linecap='round'/%3E%3C/svg%3E");
+  --m-ok:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M40 136l56 56L216 72' fill='none' stroke='%23000' stroke-width='30' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --m-clock:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Ccircle cx='128' cy='128' r='96' fill='none' stroke='%23000' stroke-width='26'/%3E%3Cpath d='M128 72v56l40 24' fill='none' stroke='%23000' stroke-width='26' stroke-linecap='round'/%3E%3C/svg%3E");
+  --m-ban:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Ccircle cx='128' cy='128' r='96' fill='none' stroke='%23000' stroke-width='26'/%3E%3Cpath d='M60 60l136 136' stroke='%23000' stroke-width='26' stroke-linecap='round'/%3E%3C/svg%3E");
+  --m-star:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M128 20l33 72 79 8-59 53 17 78-70-40-70 40 17-78-59-53 79-8z'/%3E%3C/svg%3E");
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1B1419;--surface:#261C25;--ink:#F8ECE8;--muted:#BBA9AF;--line:#3D2D36;--tint:#3A2229;--primary:#F0554A;--garnet:#FFB4AB;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1B1419;--surface:#261C25;--ink:#F8ECE8;--muted:#BBA9AF;--line:#3D2D36;--tint:#3A2229;--primary:#F0554A;--garnet:#FFB4AB;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:84px;-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.55 'DM Sans',system-ui,sans-serif;padding-bottom:env(safe-area-inset-bottom,0px)}
+h1,h2,h3,b,.d{font-family:'Plus Jakarta Sans',system-ui,sans-serif;letter-spacing:-.01em}
+h1,h2,h3{margin:0}
+.ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:16;stroke-linecap:round;stroke-linejoin:round}.ic.lg{width:24px;height:24px}.ic.sm{width:16px;height:16px;stroke-width:20}
+/* sticky navbar (contoh langsung) */
+.nav{position:sticky;top:0;z-index:50;padding:calc(env(safe-area-inset-top,0px) + 8px) max(12px,env(safe-area-inset-right,0px)) 0 max(12px,env(safe-area-inset-left,0px))}
+.pill{position:relative;max-width:1080px;margin:0 auto;height:56px;display:flex;align-items:center;gap:12px;padding:0 10px 0 16px;border-radius:999px;border:1px solid var(--line);background:color-mix(in srgb,var(--surface) 86%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);transition:box-shadow .2s}
+.nav.sc .pill{box-shadow:var(--sh)}
+.brand{display:flex;align-items:center;gap:8px;color:var(--primary);text-decoration:none;font:800 16px 'Plus Jakarta Sans'}.brand b{color:var(--ink)}
+.links{display:flex;gap:4px;margin-left:auto}.links a{padding:10px 14px;border-radius:999px;color:var(--muted);text-decoration:none;font:600 14px 'Plus Jakarta Sans'}.links a:hover{background:var(--tint);color:var(--garnet)}
+.burger{display:none;margin-left:auto;width:44px;height:44px;border-radius:50%;border:0;background:var(--tint);color:var(--garnet);place-items:center;cursor:pointer}
+@media(max-width:720px){.burger{display:grid}.links{display:none;position:absolute;left:0;right:0;top:calc(100% + 8px);flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:8px;box-shadow:var(--sh)}.links.open{display:flex}.links a{padding:14px 16px}}
+.hero{margin:12px max(12px,env(safe-area-inset-left,0px)) 0;max-width:1080px;margin-inline:auto;padding:0 max(12px,env(safe-area-inset-left,0px))}
+.hero>div{background:var(--grad);color:#fff;border-radius:28px;padding:40px 24px}
+.hero small{letter-spacing:.28em;text-transform:uppercase;font-weight:700;opacity:.9;font-size:12px}
+.hero h1{font-size:clamp(30px,7vw,52px);font-weight:800;line-height:1.05;margin:8px 0 10px}.hero p{margin:0;max-width:620px;opacity:.96}
+main{max-width:1080px;margin:0 auto;padding:0 max(16px,env(safe-area-inset-left,0px)) 80px}
+section{margin-top:52px}h2{font-size:26px;font-weight:700;margin-bottom:6px}.lead{color:var(--muted);margin:0 0 18px;max-width:680px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;min-width:0;overflow-wrap:anywhere}
+.sw{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--surface);min-width:0}.sw .c{height:64px;display:flex;align-items:flex-end;padding:8px 12px;font:700 12px 'Plus Jakarta Sans'}.sw .t{padding:10px 12px;font-size:12px;overflow-wrap:anywhere}.sw b{display:block;font-size:13px}code{font:500 12px ui-monospace,monospace;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:top}th{font:700 11px 'Plus Jakarta Sans';letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.scroll{overflow-x:auto}.scroll table{min-width:520px}
+pre{margin:0;background:#2A1F2D;color:#F8ECE8;border-radius:14px;padding:14px;overflow-x:auto;font:500 12px/1.6 ui-monospace,monospace}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font:600 14px 'Plus Jakarta Sans';border:0;border-radius:999px;padding:12px 20px;min-height:48px;cursor:pointer;background:var(--primary);color:#fff}
+.btn.o{background:var(--surface);color:var(--primary);border:1.5px solid var(--primary)}.btn.t{background:var(--tint);color:var(--garnet)}.btn.sm{min-height:44px;padding:8px 14px;font-size:13px}.btn[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+/* ikon */
+.ics{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}.ics div{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:10px;background:var(--surface);font-size:12px;min-width:0}.ics .ic{color:var(--garnet)}.ics b{display:block;font-size:12px}.ics span{overflow-wrap:anywhere}
+/* badge */
+.bg{display:inline-flex;align-items:center;gap:6px;max-width:100%;font:700 11px/1.2 'Plus Jakarta Sans';letter-spacing:.06em;text-transform:uppercase;padding:6px 10px;border-radius:999px}
+.b-live{background:var(--primary);color:#fff}.b-today{background:var(--hold);color:#2A1F2D}.b-soon{background:var(--vipbg);color:var(--vipt);border:1px solid var(--vip)}.b-done{background:color-mix(in srgb,var(--ink) 12%,var(--surface));color:var(--muted)}.b-ok{background:var(--regbg);color:var(--regt)}
+.evg{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.evc{position:relative;overflow:hidden;border-radius:18px;border:1px solid var(--line);background:var(--surface)}
+.evc.live{border:2px solid var(--primary);box-shadow:var(--sh)}.evc .im{height:96px;background:var(--grad)}
+.evc .dt{position:absolute;top:10px;left:10px;width:56px;text-align:center;background:var(--surface);border-radius:12px;padding:6px 0;line-height:1.05}.dt small{display:block;font:700 10px 'Plus Jakarta Sans';letter-spacing:.14em;color:var(--primary)}.dt b{font-size:20px;font-weight:800}
+.evc .bt{position:absolute;top:10px;right:10px;max-width:calc(100% - 84px)}
+.evc .bd{padding:12px 14px}.evc .bd small{display:block;color:var(--muted);letter-spacing:.05em;font-size:11px}
+/* seat */
+.s{--sz:30px;position:relative;width:var(--sz);height:var(--sz);flex:none;padding:0;border-radius:calc(var(--sz)*.28) calc(var(--sz)*.28) calc(var(--sz)*.16) calc(var(--sz)*.16);border:2px solid;font:700 calc(var(--sz)*.34)/1 'DM Sans';cursor:pointer;display:grid;place-items:center}
+.s::after,.s::before{content:"";position:absolute;display:none;background:currentColor;-webkit-mask:var(--mk) center/contain no-repeat;mask:var(--mk) center/contain no-repeat}
+.s::after{inset:20%}
+.s.reg{background:var(--regbg);border-color:var(--reg);color:var(--regt)}
+.s.vip{background:var(--vipbg);border-color:var(--vip);color:var(--vipt)}
+.s.vip::before{display:block;--mk:var(--m-star);right:-3px;top:-3px;width:36%;height:36%;color:var(--vip)}
+.s.sel{background:var(--primary);border-color:var(--primary);color:transparent}.s.sel::after{display:block;--mk:var(--m-ok);color:#fff}.s.sel::before{display:none}
+.s.hold{background:var(--hold);border-color:var(--hold);color:transparent;cursor:not-allowed}.s.hold::after{display:block;--mk:var(--m-clock);color:#2A1F2D}
+.s.sold{background:var(--sold);border-color:var(--sold);color:transparent;cursor:not-allowed}.s.sold::after{display:block;--mk:var(--m-x);color:#fff}
+.s.blk{background:repeating-linear-gradient(45deg,var(--blk) 0 3px,transparent 3px 7px);border-color:var(--blk);color:transparent;cursor:not-allowed}.s.blk::after{display:block;--mk:var(--m-ban);color:var(--blk)}
+.s.vip.hold::before,.s.vip.sold::before,.s.vip.blk::before{display:none}
+.s.sm{--sz:22px;cursor:default;font-size:0}
+/* denah */
+.mw{background:var(--surface);border:1px solid var(--line);border-radius:22px;overflow:hidden;display:flex;flex-direction:column}
+.mw.full{position:fixed;inset:0;z-index:100;border-radius:0;border:0;height:100dvh}
+.tb{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--line);padding-top:max(10px,env(safe-area-inset-top,0px))}
+.tb .zl{font:700 13px 'Plus Jakarta Sans';min-width:48px;text-align:center}.tb .sp{margin-left:auto}
+.msc{overflow:auto;max-height:440px;padding:16px;background:color-mix(in srgb,var(--ink) 3%,var(--surface));-webkit-overflow-scrolling:touch}.mw.full .msc{max-height:none;flex:1}
+.stg{width:max-content;min-width:60%;margin:0 auto 14px;text-align:center;padding:8px 24px;border-radius:10px 10px 36px 36px;background:var(--grad);color:#fff;font:700 11px 'Plus Jakarta Sans';letter-spacing:.3em}
+#mp{--sz:30px;width:max-content;margin:0 auto}
+.r8{display:flex;align-items:center;gap:calc(var(--sz)*.2);margin-bottom:calc(var(--sz)*.2)}.r8 .rl{width:calc(var(--sz)*.6);font:700 calc(var(--sz)*.34) 'Plus Jakarta Sans';color:var(--muted);text-align:center}.r8 .ai{width:calc(var(--sz)*1.1)}
+.sum{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 14px;background:var(--tint)}
+.lgd{border-top:1px solid var(--line)}.lgd summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px;min-height:48px;cursor:pointer;font:700 13px 'Plus Jakarta Sans'}.lgd summary::-webkit-details-marker{display:none}.lgd summary span{color:var(--muted);font:500 12px 'DM Sans'}
+.lgg{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 14px;padding:0 14px 14px}.lgg div{display:flex;gap:10px;align-items:center;min-width:0;font-size:13px;line-height:1.25}.lgg small{display:block;color:var(--muted);font-size:11px}
+@media(max-width:480px){.lgg{grid-template-columns:1fr 1fr}.lgg small{display:none}.msc{padding:10px}}
+.tg{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:40;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:10px 14px;font:600 12px 'DM Sans';cursor:pointer;min-height:44px}
+@media(max-width:600px){h2{font-size:22px}.hero>div{padding:32px 18px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body id="top">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-lotus" viewBox="0 0 256 256"><path d="M128 216C88 176 88 112 128 56c40 56 40 120 0 160zM128 216C72 196 44 140 56 92c46 18 78 64 72 124zM128 216c56-20 84-76 72-124-46 18-78 64-72 124z"/></symbol>
+<symbol id="i-list" viewBox="0 0 256 256"><path d="M40 64h176M40 128h176M40 192h176"/></symbol>
+<symbol id="i-x" viewBox="0 0 256 256"><path d="M200 56L56 200M200 200L56 56"/></symbol>
+<symbol id="i-timer" viewBox="0 0 256 256"><circle cx="128" cy="144" r="88"/><path d="M128 144V96M96 32h64"/></symbol>
+<symbol id="i-clock" viewBox="0 0 256 256"><circle cx="128" cy="128" r="96"/><path d="M128 72v56l40 24"/></symbol>
+<symbol id="i-broadcast" viewBox="0 0 256 256"><circle cx="128" cy="128" r="24"/><path d="M82 82a64 64 0 000 92M174 82a64 64 0 010 92M54 54a104 104 0 000 148M202 54a104 104 0 010 148"/></symbol>
+<symbol id="i-cal" viewBox="0 0 256 256"><rect x="40" y="48" width="176" height="168" rx="16"/><path d="M40 96h176M88 28v32M168 28v32M96 152l24 24 44-48"/></symbol>
+<symbol id="i-check" viewBox="0 0 256 256"><path d="M40 136l56 56L216 72"/></symbol>
+<symbol id="i-ban" viewBox="0 0 256 256"><circle cx="128" cy="128" r="96"/><path d="M60 60l136 136"/></symbol>
+<symbol id="i-star" viewBox="0 0 256 256"><path d="M128 24l31 70 76 7-57 50 17 75-67-39-67 39 17-75-57-50 76-7z"/></symbol>
+<symbol id="i-heart" viewBox="0 0 256 256"><path d="M128 216S32 160 32 92a52 52 0 0196-26 52 52 0 0196 26c0 68-96 124-96 124z"/></symbol>
+<symbol id="i-arrow" viewBox="0 0 256 256"><path d="M40 128h176M152 64l64 64-64 64"/></symbol>
+<symbol id="i-out" viewBox="0 0 256 256"><path d="M168 40h48v48M88 216H40v-48M216 40l-56 56M40 216l56-56"/></symbol>
+<symbol id="i-in" viewBox="0 0 256 256"><path d="M216 96h-48V48M40 160h48v48M168 96l56-56M88 160l-56 56"/></symbol>
+<symbol id="i-plus" viewBox="0 0 256 256"><path d="M128 40v176M40 128h176"/></symbol>
+<symbol id="i-minus" viewBox="0 0 256 256"><path d="M40 128h176"/></symbol>
+<symbol id="i-pin" viewBox="0 0 256 256"><path d="M128 232s-80-72-80-128a80 80 0 01160 0c0 56-80 128-80 128z"/><circle cx="128" cy="104" r="28"/></symbol>
+<symbol id="i-ticket" viewBox="0 0 256 256"><path d="M40 64h176v40a24 24 0 000 48v40H40v-40a24 24 0 000-48z"/></symbol>
+<symbol id="i-warn" viewBox="0 0 256 256"><path d="M128 40L24 216h208z"/><path d="M128 104v56M128 188v.01"/></symbol>
+</defs></svg>
+
+<header class="nav" id="nav"><div class="pill">
+  <a class="brand" href="#top"><svg class="ic lg"><use href="#i-lotus"/></svg><b>Summarecon</b></a>
+  <nav class="links" id="links" aria-label="Navigasi">
+    <a href="#perubahan">Perubahan</a><a href="#token">Token</a><a href="#ikon">Ikon</a><a href="#navbar">Navbar</a><a href="#badge">Badge</a><a href="#denah">Denah</a><a href="#responsif">Responsif</a>
+  </nav>
+  <button class="burger" id="bg" aria-label="Buka menu" aria-expanded="false"><svg class="ic"><use href="#i-list"/></svg></button>
+</div></header>
+
+<div class="hero"><div>
+  <small>Style Guide v2 · Customer Web</small>
+  <h1>Summarecon Ticketing</h1>
+  <p>Disusun dari aplikasi yang sudah berjalan (Fase 1–12). Fokus revisi ini: navbar menempel, ikon Phosphor tanpa emoji, legenda denah responsif, dan denah ukuran penuh.</p>
+</div></div>
+
+<main>
+<section id="perubahan">
+  <h2>1. Ringkasan Perubahan</h2>
+  <div class="grid">
+    <div class="card"><b>Navbar menempel</b><p class="lead" style="margin:6px 0 0;font-size:14px">Pill melayang, tetap terlihat saat scroll, bayangan muncul setelah scroll. Coba scroll halaman ini.</p></div>
+    <div class="card"><b>Tanpa emoji</b><p class="lead" style="margin:6px 0 0;font-size:14px">Semua ikon dari Phosphor. Badge Event Terdekat, jam pesanan, dan penanda status tidak lagi memakai emoji atau simbol teks.</p></div>
+    <div class="card"><b>Legenda responsif</b><p class="lead" style="margin:6px 0 0;font-size:14px">Grid yang menyesuaikan lebar, dua kolom di ponsel, dan dapat dilipat saat denah layar penuh.</p></div>
+    <div class="card"><b>Denah penuh</b><p class="lead" style="margin:6px 0 0;font-size:14px">Kontrol zoom, Pas layar, dan Layar penuh dengan ringkasan pesanan yang tetap terlihat.</p></div>
+  </div>
+</section>
+
+<section id="token">
+  <h2>2. Token Warna (sesuai aplikasi)</h2>
+  <p class="lead">Nilai diambil dari dokumen progres, sehingga tim tidak perlu mengubah warna yang sudah dipakai.</p>
+  <div class="grid">
+    <div class="sw"><div class="c" style="background:#D93A2F;color:#fff">Aa</div><div class="t"><b>Vermilion</b><code>#D93A2F</code><br>CTA, Pilihanmu</div></div>
+    <div class="sw"><div class="c" style="background:#2A1F2D;color:#fff">Aa</div><div class="t"><b>Plum Ink</b><code>#2A1F2D</code><br>Teks utama</div></div>
+    <div class="sw"><div class="c" style="background:#FDFBF7;color:#2A1F2D;border-bottom:1px solid #EADFD9">Aa</div><div class="t"><b>Cream</b><code>#FDFBF7</code><br>Latar halaman</div></div>
+    <div class="sw"><div class="c" style="background:#D9822B;color:#fff">VIP</div><div class="t"><b>Amber Gold</b><code>#D9822B</code><br>Border VIP · isi <code>#FFF8E7</code> · teks <code>#8F4800</code></div></div>
+    <div class="sw"><div class="c" style="background:#1F8F7E;color:#fff">REG</div><div class="t"><b>Teal</b><code>#1F8F7E</code><br>Border Reguler · isi <code>#E3F4F1</code> · teks <code>#14665A</code></div></div>
+    <div class="sw"><div class="c" style="background:#E9A12B;color:#2A1F2D">Ditahan</div><div class="t"><b>Held</b><code>#E9A12B</code><br>Isi penuh + ikon jam</div></div>
+    <div class="sw"><div class="c" style="background:#6B5A6E;color:#fff">Terjual</div><div class="t"><b>Sold</b><code>#6B5A6E</code><br>Isi penuh + ikon X</div></div>
+    <div class="sw"><div class="c" style="background:repeating-linear-gradient(45deg,#9A8F95 0 3px,transparent 3px 7px);border-bottom:2px solid #9A8F95"></div><div class="t"><b>Blocked</b><code>#9A8F95</code><br>Arsiran + ikon larangan</div></div>
+  </div>
+  <div class="card" style="margin-top:14px"><b>Aturan pembeda kategori dan status</b>
+    <p class="lead" style="margin:6px 0 0;font-size:14px">VIP (amber) dan Ditahan (kuning) berwarna dekat, jadi dibedakan dengan <b>bentuk isi</b>: kursi tersedia selalu berisi <b>warna pucat dengan garis tepi</b> (VIP bertanda bintang kecil), sedangkan kursi tidak tersedia berisi <b>warna penuh dengan ikon</b>. Pilihanmu merah penuh dengan tanda centang.</p></div>
+</section>
+
+<section id="ikon">
+  <h2>3. Ikon: Phosphor Saja</h2>
+  <p class="lead">Gunakan <code>@phosphor-icons/react</code>. Dilarang emoji dan simbol teks sebagai ikon (misalnya api, jam, centang, silang, hati, bunga, panah). Bentuk di bawah hanyalah ilustrasi; di aplikasi pakai komponen resmi dengan nama berikut.</p>
+  <div class="ics">
+    <div><svg class="ic"><use href="#i-timer"/></svg><span><b>Timer</b>Event Terdekat, sisa waktu</span></div>
+    <div><svg class="ic"><use href="#i-broadcast"/></svg><span><b>Broadcast</b>Sedang berlangsung</span></div>
+    <div><svg class="ic"><use href="#i-cal"/></svg><span><b>CalendarCheck</b>Hari ini</span></div>
+    <div><svg class="ic"><use href="#i-clock"/></svg><span><b>Clock</b>Ditahan, jam pesanan</span></div>
+    <div><svg class="ic"><use href="#i-check"/></svg><span><b>Check</b>Pilihanmu, berhasil</span></div>
+    <div><svg class="ic"><use href="#i-x"/></svg><span><b>X</b>Terjual, tutup</span></div>
+    <div><svg class="ic"><use href="#i-ban"/></svg><span><b>Prohibit</b>Diblokir</span></div>
+    <div><svg class="ic"><use href="#i-star"/></svg><span><b>Star</b>Kategori VIP</span></div>
+    <div><svg class="ic"><use href="#i-heart"/></svg><span><b>Heart</b>Favorit</span></div>
+    <div><svg class="ic"><use href="#i-arrow"/></svg><span><b>ArrowRight</b>Lanjut</span></div>
+    <div><svg class="ic"><use href="#i-out"/></svg><span><b>ArrowsOut / ArrowsIn</b>Layar penuh</span></div>
+    <div><svg class="ic"><use href="#i-pin"/></svg><span><b>MapPin</b>Lokasi venue</span></div>
+    <div><svg class="ic"><use href="#i-ticket"/></svg><span><b>Ticket</b>Tiket, e-ticket</span></div>
+    <div><svg class="ic"><use href="#i-warn"/></svg><span><b>Warning</b>Peringatan, gagal</span></div>
+    <div><svg class="ic"><use href="#i-list"/></svg><span><b>List</b>Menu hamburger</span></div>
+  </div>
+  <div class="card" style="margin-top:14px"><b>Aturan pakai</b>
+    <ul style="margin:8px 0 0;padding-left:18px;font-size:14px"><li>Ukuran 16 px (badge), 20 px (tombol dan baris), 24 px (navigasi).</li><li>Bobot <code>regular</code> untuk umum, <code>bold</code> untuk 16 px ke bawah, <code>fill</code> hanya untuk keadaan aktif.</li><li>Ikon dekoratif diberi <code>aria-hidden</code>; ikon tunggal tanpa teks wajib punya <code>aria-label</code>.</li><li>Ikon mengikuti warna teks (<code>currentColor</code>), tidak diberi warna sendiri.</li></ul></div>
+</section>
+
+<section id="navbar">
+  <h2>4. Navbar Menempel (Sticky)</h2>
+  <p class="lead">Navbar halaman ini adalah contohnya. Pill tetap di atas saat scroll, burger berada di dalam pill pada layar sempit, dan bayangan muncul setelah scroll melewati 8 px.</p>
+  <div class="scroll"><table>
+    <tr><th>Properti</th><th>Nilai</th></tr>
+    <tr><td>Posisi</td><td><code>position: sticky; top: 0; z-index: 50</code>, dengan jarak atas 8 px ditambah safe-area</td></tr>
+    <tr><td>Tinggi pill</td><td>56 px, tombol dan tautan minimal 44 px</td></tr>
+    <tr><td>Latar</td><td>Surface 86% dengan blur 12 px, garis tepi 1 px</td></tr>
+    <tr><td>Mobile (≤720 px)</td><td>Tautan menjadi panel di bawah pill, dibuka burger, tertutup saat pindah halaman atau Esc</td></tr>
+    <tr><td>Offset elemen menempel lain</td><td>Ringkasan pesanan dan toolbar denah: <code>top: 72px</code>; jangkar: <code>scroll-margin-top: 84px</code></td></tr>
+    <tr><td>Urutan lapisan</td><td>Navbar 50 · ringkasan menempel 40 · drawer 60 · denah layar penuh 100 · toast 110</td></tr>
+  </table></div>
+  <pre style="margin-top:12px">&lt;header className="sticky top-0 z-50 px-3 pt-[calc(env(safe-area-inset-top)+8px)]"&gt;
+  &lt;nav className={`relative mx-auto flex h-14 max-w-6xl items-center gap-3 rounded-full
+    border border-[#EADFD9] bg-white/85 pl-4 pr-2 backdrop-blur-md transition-shadow
+    ${scrolled ? "shadow-[0_8px_28px_rgba(140,31,43,.14)]" : ""}`}&gt;
+    {/* logo, links (hidden md:flex), burger (md:hidden) di dalam nav */}
+  &lt;/nav&gt;
+&lt;/header&gt;</pre>
+</section>
+
+<section id="badge">
+  <h2>5. Badge Waktu Event dan Posisi dalam Kartu</h2>
+  <p class="lead">Badge selalu berada di dalam kartu: kanan atas, dengan lebar maksimal kartu dikurangi 84 px (tile tanggal 56 px di kiri ditambah jarak). Teks panjang pindah baris, tidak keluar kartu.</p>
+  <div class="evg">
+    <div class="evc live"><div class="im"></div><span class="dt"><small>NOV</small><b>08</b></span><span class="bg b-live bt"><svg class="ic sm"><use href="#i-broadcast"/></svg>Sedang berlangsung</span><div class="bd"><b>Bazaar Kreator Bandung</b><small>SAWARGA COURTYARD · SAMPAI 21.00</small></div></div>
+    <div class="evc"><div class="im"></div><span class="dt"><small>NOV</small><b>10</b></span><span class="bg b-soon bt"><svg class="ic sm"><use href="#i-timer"/></svg>Event Terdekat</span><div class="bd"><b>Seminar Kreator Muda</b><small>ATRIUM CILEUTIK · 2 HARI LAGI</small></div></div>
+    <div class="evc"><div class="im"></div><span class="dt"><small>NOV</small><b>14</b></span><span class="bg b-today bt"><svg class="ic sm"><use href="#i-cal"/></svg>Hari ini</span><div class="bd"><b>Festival Kuliner Downtown Walk yang Sangat Panjang Namanya</b><small>DOWNTOWN WALK</small></div></div>
+  </div>
+  <div class="row" style="margin-top:14px">
+    <span class="bg b-live"><svg class="ic sm"><use href="#i-broadcast"/></svg>Berlangsung</span>
+    <span class="bg b-today"><svg class="ic sm"><use href="#i-cal"/></svg>Hari ini</span>
+    <span class="bg b-soon"><svg class="ic sm"><use href="#i-timer"/></svg>Event Terdekat</span>
+    <span class="bg b-ok"><svg class="ic sm"><use href="#i-check"/></svg>Terbayar</span>
+    <span class="bg b-done"><svg class="ic sm"><use href="#i-check"/></svg>Selesai</span>
+  </div>
+  <div class="scroll card" style="margin-top:14px"><table>
+    <tr><th>Urutan</th><th>Penanda</th><th>Aturan</th></tr>
+    <tr><td>1</td><td>Sedang berlangsung</td><td>Disematkan paling atas, bingkai 2 px Vermilion</td></tr>
+    <tr><td>2</td><td>Hari ini</td><td>Badge amber dengan jam mulai</td></tr>
+    <tr><td>3</td><td>Event Terdekat</td><td>Hanya event mendatang terdekat, maksimal 7 hari</td></tr>
+    <tr><td>4</td><td>Mendatang</td><td>Tanpa badge, urut tanggal</td></tr>
+    <tr><td>5</td><td>Selesai</td><td>Kartu diredam, tanpa tombol beli</td></tr>
+  </table></div>
+</section>
+
+<section id="denah">
+  <h2>6. Denah Penuh dan Legenda Responsif</h2>
+  <p class="lead">Toolbar denah: zoom keluar/masuk, Pas layar, dan Layar penuh. Pada layar penuh, denah memakai tinggi layar penuh, ringkasan pesanan tetap di bawah, dan legenda dapat dilipat. Coba di bawah, lalu tekan Esc untuk keluar.</p>
+  <div class="mw" id="mw">
+    <div class="tb">
+      <button class="btn t sm" id="zo" aria-label="Perkecil"><svg class="ic sm"><use href="#i-minus"/></svg></button>
+      <span class="zl" id="zl">100%</span>
+      <button class="btn t sm" id="zi" aria-label="Perbesar"><svg class="ic sm"><use href="#i-plus"/></svg></button>
+      <button class="btn o sm" id="fit">Pas layar</button>
+      <button class="btn sm sp" id="fs" aria-pressed="false"><svg class="ic sm" id="fsi"><use href="#i-out"/></svg><span id="fst">Layar penuh</span></button>
+    </div>
+    <div class="msc" id="msc"><div class="stg">PANGGUNG</div><div id="mp"></div></div>
+    <div class="sum"><div><b class="d" id="sm">Belum ada kursi dipilih</b></div><button class="btn sm" id="go" disabled>Lanjut <svg class="ic sm"><use href="#i-arrow"/></svg></button></div>
+    <details class="lgd" id="lgd" open>
+      <summary>Legenda <span>6 penanda</span></summary>
+      <div class="lgg">
+        <div><i class="s reg sm"></i><span>Reguler<small>Rp 300.000 · tersedia</small></span></div>
+        <div><i class="s vip sm"></i><span>VIP<small>Rp 500.000 · bintang</small></span></div>
+        <div><i class="s sel sm"></i><span>Pilihanmu<small>Belum ditahan</small></span></div>
+        <div><i class="s hold sm"></i><span>Ditahan<small>Pengguna lain</small></span></div>
+        <div><i class="s sold sm"></i><span>Terjual<small>Tidak tersedia</small></span></div>
+        <div><i class="s blk sm"></i><span>Diblokir<small>Oleh panitia</small></span></div>
+      </div>
+    </details>
+  </div>
+  <div class="scroll card" style="margin-top:14px"><table>
+    <tr><th>Aspek</th><th>Aturan</th></tr>
+    <tr><td>Legenda</td><td>Grid <code>auto-fit minmax(150px,1fr)</code>; ≤480 px dua kolom tanpa subteks; label tidak boleh terpotong</td></tr>
+    <tr><td>Layar penuh</td><td><code>fixed inset-0 z-100 h-dvh</code>, kunci scroll body, fokus terkurung, Esc menutup, tombol tutup selalu terlihat</td></tr>
+    <tr><td>Zoom</td><td>Ukuran kursi 16–52 px; Pas layar menghitung ukuran dari lebar wadah; seleksi tidak hilang saat zoom</td></tr>
+    <tr><td>Ponsel</td><td>Fokus Blok (A atau B) dengan kursi 44 px tetap dipertahankan; Layar penuh menampilkan seluruh blok dengan geser dan cubit</td></tr>
+    <tr><td>Kategori vs status</td><td>Isi pucat + garis tepi = tersedia (VIP bertanda bintang); isi penuh + ikon = tidak tersedia</td></tr>
+  </table></div>
+</section>
+
+<section id="responsif">
+  <h2>7. Breakpoint dan Target Sentuh</h2>
+  <div class="scroll card"><table>
+    <tr><th>Lebar</th><th>Perangkat uji</th><th>Perilaku</th></tr>
+    <tr><td>320–359</td><td>Ponsel kecil</td><td>Satu kolom, legenda 2 kolom, denah bisa digeser</td></tr>
+    <tr><td>360–479</td><td>Samsung, iPhone</td><td>Fokus Blok, kursi 44 px, burger di dalam pill</td></tr>
+    <tr><td>480–767</td><td>Ponsel besar</td><td>Kartu 1–2 kolom, legenda 3 kolom</td></tr>
+    <tr><td>768–1023</td><td>Tablet</td><td>Navbar penuh, denah seluruh blok, ringkasan di samping</td></tr>
+    <tr><td>1024+</td><td>Laptop, desktop</td><td>Lebar konten 1080 px, ringkasan menempel di kanan</td></tr>
+  </table></div>
+  <p class="lead" style="margin-top:12px">Target sentuh minimal 44 px (tombol utama 48 px), input 16 px agar iOS tidak memperbesar halaman, dan safe-area notch dihitung pada navbar, toolbar, serta panel bawah. Timer tetap: kursi ditahan 10 menit setelah tombol Lanjut, pembayaran QRIS 7 menit.</p>
+</section>
+</main>
+<button class="tg" id="th">Terang / Gelap</button>
+
+<script>
+(function(){
+var nav=document.getElementById('nav'),lk=document.getElementById('links'),bg=document.getElementById('bg');
+function sc(){nav.classList.toggle('sc',window.scrollY>8)}sc();addEventListener('scroll',sc,{passive:true});
+bg.onclick=function(){var o=lk.classList.toggle('open');bg.setAttribute('aria-expanded',o)};
+lk.onclick=function(e){if(e.target.tagName=='A'){lk.classList.remove('open');bg.setAttribute('aria-expanded','false')}};
+var dk=matchMedia('(prefers-color-scheme: dark)').matches;
+document.getElementById('th').onclick=function(){dk=!dk;document.documentElement.setAttribute('data-theme',dk?'dark':'light')};
+
+var W=document.getElementById('mw'),S=document.getElementById('msc'),G=document.getElementById('mp'),sz=30,sel={};
+var ST={B03:'h',E08:'h',C05:'s',F02:'s',G09:'b',D04:'s',A07:'b'};
+function nn(n){return('0'+n).slice(-2)}
+function draw(){var h='';'ABCDEFGH'.split('').forEach(function(r){h+='<div class="r8"><span class="rl">'+r+'</span>';
+ for(var n=1;n<=10;n++){if(n==6)h+='<span class="ai"></span>';var id=r+nn(n),s=ST[id]||'',c=sel[id]?'sel':s=='s'?'sold':s=='h'?'hold':s=='b'?'blk':('ABC'.indexOf(r)>-1?'vip':'reg');
+  h+='<button class="s '+c+'" data-id="'+id+'" aria-label="Kursi '+id+'"'+(s?' disabled':'')+'>'+nn(n)+'</button>'}
+ h+='</div>'});G.innerHTML=h;G.style.setProperty('--sz',sz+'px');
+ document.getElementById('zl').textContent=Math.round(sz/30*100)+'%';
+ var ids=Object.keys(sel),t=0;ids.forEach(function(i){t+='ABC'.indexOf(i[0])>-1?500:300});
+ document.getElementById('sm').textContent=ids.length?ids.length+' kursi ('+ids.join(', ')+') · Rp '+(t*1000).toLocaleString('id-ID'):'Belum ada kursi dipilih';
+ document.getElementById('go').disabled=!ids.length}
+G.onclick=function(e){var b=e.target.closest('.s');if(!b||b.disabled)return;var id=b.dataset.id;if(sel[id])delete sel[id];else sel[id]=1;draw()};
+function fit(){var w=S.clientWidth-(W.classList.contains('full')?32:20);sz=Math.max(16,Math.min(52,Math.floor(w/14.2)));draw()}
+document.getElementById('zi').onclick=function(){sz=Math.min(52,sz+4);draw()};
+document.getElementById('zo').onclick=function(){sz=Math.max(16,sz-4);draw()};
+document.getElementById('fit').onclick=fit;
+var fs=document.getElementById('fs');
+function full(on){W.classList.toggle('full',on);document.body.style.overflow=on?'hidden':'';fs.setAttribute('aria-pressed',on);
+ document.getElementById('fst').textContent=on?'Tutup layar penuh':'Layar penuh';
+ document.getElementById('fsi').innerHTML='<use href="#'+(on?'i-in':'i-out')+'"/>';
+ if(on)W.querySelector('#lgd').open=innerWidth>640;fit()}
+fs.onclick=function(){full(!W.classList.contains('full'))};
+addEventListener('keydown',function(e){if(e.key=='Escape'&&W.classList.contains('full'))full(false)});
+document.getElementById('lgd').open=innerWidth>640;
+draw();
+})();
+</script>
+</body>
+</html>
